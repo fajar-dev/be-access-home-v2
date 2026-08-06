@@ -1,6 +1,7 @@
 import { AppDatabase } from "./lib/app-database";
 import { BillingDatabase } from "./lib/billing-database";
 import { GoogleSheetsClient } from "./lib/google-sheets-client";
+import { NusaworkClient } from "./lib/nusawork-client";
 
 import { EmployeeRepository } from "./repository/employee.repository";
 import { SnapshotRepository } from "./repository/snapshot.repository";
@@ -13,8 +14,12 @@ import { SnapshotService } from "./service/snapshot.service";
 import { ServiceCatalogService } from "./service/service-catalog.service";
 import { NewCustomerService } from "./service/new-customer.service";
 import { OldCustomerService } from "./service/old-customer.service";
+import { NusaworkService } from "./service/nusawork.service";
+import { AuthService } from "./service/auth.service";
 
 import { HealthController } from "./controller/health.controller";
+import { EmployeeController } from "./controller/employee.controller";
+import { AuthController } from "./controller/auth.controller";
 
 /**
  * Composition root: the one place the full dependency graph gets wired
@@ -40,6 +45,7 @@ class Container {
     this.billingDatabase,
     this.sheetsClient,
   );
+  readonly nusaworkClient = new NusaworkClient();
 
   // Services
   readonly employeeService = new EmployeeService(this.employeeRepository);
@@ -57,9 +63,13 @@ class Container {
     this.serviceCatalogService,
     this.snapshotService,
   );
+  readonly nusaworkService = new NusaworkService(this.nusaworkClient);
+  readonly authService = new AuthService();
 
   // Controllers
   readonly healthController = new HealthController();
+  readonly employeeController = new EmployeeController(this.employeeService);
+  readonly authController = new AuthController(this.authService, this.employeeService);
 
   /** Closes every open DB connection pool — call before a job/process exits. */
   async closeConnections(): Promise<void> {

@@ -40,3 +40,12 @@ export function getDateRangeForPeriod(period: string): { start: Date; end: Date 
 
   return { start, end };
 }
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/** Formats a Date as a local (not UTC) YYYY-MM-DD string, for MySQL DATE params. */
+export function toSqlDate(d: Date): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}

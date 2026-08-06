@@ -1,4 +1,10 @@
-import type { IEmployeeRepository, IEmployeeService, SalesResolution } from "../interface/employee.interface";
+import type {
+  EmployeeDetail,
+  EmployeeUpsertInput,
+  IEmployeeRepository,
+  IEmployeeService,
+  SalesResolution,
+} from "../interface/employee.interface";
 
 const SALES_UNMATCHED_ALLOWED = new Set(["Customer Relation Officer"]);
 
@@ -48,5 +54,43 @@ export class EmployeeService implements IEmployeeService {
     }
 
     return { value: null, skip: true };
+  }
+
+  upsertEmployee(data: EmployeeUpsertInput): Promise<void> {
+    return this.employeeRepository.upsertEmployee(data);
+  }
+
+  upsertStatusPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    status: string,
+  ): Promise<void> {
+    return this.employeeRepository.upsertStatusPeriod(employeeId, startDate, endDate, status);
+  }
+
+  getAllEmployeeIds(): Promise<string[]> {
+    return this.employeeRepository.findAllEmployeeIds();
+  }
+
+  deactivateEmployee(employeeId: string): Promise<void> {
+    return this.employeeRepository.updateActiveStatus(employeeId, false);
+  }
+
+  findByEmployeeId(employeeId: string): Promise<EmployeeDetail | null> {
+    return this.employeeRepository.findByEmployeeId(employeeId);
+  }
+
+  findByEmail(email: string): Promise<EmployeeDetail | null> {
+    return this.employeeRepository.findByEmail(email);
+  }
+
+  getHierarchy(
+    employeeId: string,
+    search?: string,
+    isSelf: boolean = true,
+    isActiveOnly: boolean = true,
+  ): Promise<EmployeeDetail[]> {
+    return this.employeeRepository.findHierarchy(employeeId, search, isSelf, isActiveOnly);
   }
 }
