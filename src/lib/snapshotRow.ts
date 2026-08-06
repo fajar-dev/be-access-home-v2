@@ -3,6 +3,12 @@ import { resolveEmployee, resolveSales } from "./employee";
 export const ALLOWED_CATEGORIES = ["Alat", "Setup", "FO Prepaid"] as const;
 export type AllowedCategory = (typeof ALLOWED_CATEGORIES)[number];
 
+// `type` values written by the new-customer path vs. the old-customer
+// (recurring) path — used to scope re-runs so one job's delete+insert
+// never touches the other job's rows for the same period.
+export const NEW_CUSTOMER_TYPES = ["new", "upgrade", "prorate"];
+export const RECURRING_TYPES = ["recurring"];
+
 // For "Alat"/"Setup" rows, only service names starting with one of these
 // are kept — anything else in those two categories is skipped.
 const ALAT_SETUP_SERVICE_PREFIXES = [
@@ -43,7 +49,7 @@ export function parseDate(value: Scalar): string | null {
 }
 
 function isAllowedServiceName(
-  category: AllowedCategory,
+  category: string | null | undefined,
   serviceName: Scalar,
 ): boolean {
   if (category !== "Alat" && category !== "Setup") return true;
@@ -152,6 +158,17 @@ export function buildSnapshotValues(
 
   const manager = resolveEmployee(input.managerSales?.toString(), employeeMap);
 
+  return assembleValues(input, category, sales, manager, subscription, type);
+}
+
+function assembleValues(
+  input: RawSnapshotInput,
+  category: string | null | undefined,
+  sales: string | null,
+  manager: string | null,
+  subscription: number | null,
+  type: "new" | "upgrade" | "prorate" | "recurring",
+): any[] {
   return [
     parseIntOrNull(input.aiInvoice),
     parseIntOrNull(input.aiReceipt),
@@ -174,4 +191,41 @@ export function buildSnapshotValues(
     parseNumber(input.biayaReferral) ?? 0,
     input.referralName?.toString().trim() || null,
   ];
+}
+
+/**
+ * Old-customer variant: no category allowlist (every category is kept),
+ * subscription comes straight from DPP, and type is always "recurring".
+ * Paid gate, the Alat/Setup service-name prefix rule, and sales/manager
+ * resolution stay identical to the new-customer path.
+ */
+export function buildRecurringSnapshotValues(
+  input: RawSnapshotInput,
+  employeeMap: Map<string, string>,
+): any[] | null {
+  const category = input.category?.toString().trim() || null;
+  const paid = input.paid?.toString().trim();
+
+  if (paid !== "1") return null;
+
+  if (!isAllowedServiceName(category, input.namaService)) {
+    return null;
+  }
+
+  const { value: sales, skip: skipSales } = resolveSales(
+    input.sales?.toString(),
+    employeeMap,
+  );
+  if (skipSales) return null;
+
+  const manager = resolveEmployee(input.managerSales?.toString(), employeeMap);
+
+  return assembleValues(
+    input,
+    category,
+    sales,
+    manager,
+    parseNumber(input.dpp),
+    "recurring",
+  );
 }

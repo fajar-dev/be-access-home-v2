@@ -1,17 +1,17 @@
-import { fetchBillingSnapshotInputs } from "../lib/billingTransform";
+import { fetchOldBillingSnapshotInputs } from "../lib/oldBillingTransform";
 import { getEmployeeIdByName } from "../lib/employee";
 import { endPool } from "../lib/db";
 import { endNisPool } from "../lib/nisDb";
 import { resolvePeriod } from "../lib/periodArg";
-import { buildSnapshotValues, NEW_CUSTOMER_TYPES } from "../lib/snapshotRow";
+import { buildRecurringSnapshotValues, RECURRING_TYPES } from "../lib/snapshotRow";
 import { replaceSnapshotsForPeriod } from "../lib/snapshotWriter";
 
 async function run() {
   const period = resolvePeriod();
-  console.log(`Mengambil data billing untuk periode "${period}"...`);
+  console.log(`Mengambil data billing (old customer) untuk periode "${period}"...`);
 
   const [inputs, employeeMap] = await Promise.all([
-    fetchBillingSnapshotInputs(period),
+    fetchOldBillingSnapshotInputs(period),
     getEmployeeIdByName(),
   ]);
 
@@ -19,7 +19,7 @@ async function run() {
   let skipped = 0;
 
   for (const input of inputs) {
-    const built = buildSnapshotValues(input, employeeMap);
+    const built = buildRecurringSnapshotValues(input, employeeMap);
     if (!built) {
       skipped++;
       continue;
@@ -27,7 +27,7 @@ async function run() {
     values.push([period, ...built]);
   }
 
-  await replaceSnapshotsForPeriod(period, values, NEW_CUSTOMER_TYPES);
+  await replaceSnapshotsForPeriod(period, values, RECURRING_TYPES);
 
   console.log(`Selesai. Ditambahkan: ${values.length}, dilewati: ${skipped}.`);
   await endPool();

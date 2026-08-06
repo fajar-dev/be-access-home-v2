@@ -2,7 +2,7 @@ import { getSheetRows } from "../lib/sheets";
 import { getEmployeeIdByName } from "../lib/employee";
 import { endPool } from "../lib/db";
 import { resolvePeriod } from "../lib/periodArg";
-import { buildSnapshotValues, NEW_CUSTOMER_TYPES } from "../lib/snapshotRow";
+import { buildRecurringSnapshotValues, RECURRING_TYPES } from "../lib/snapshotRow";
 import { replaceSnapshotsForPeriod } from "../lib/snapshotWriter";
 
 async function run() {
@@ -10,7 +10,7 @@ async function run() {
   console.log(`Mengambil data dari sheet "${sheetTitle}"...`);
 
   const [rows, employeeMap] = await Promise.all([
-    getSheetRows(sheetTitle, process.env.GOOGLE_SPREADSHEET_ID!),
+    getSheetRows(sheetTitle, process.env.GOOGLE_SPREADSHEET_ID_OLD_CUSTOMER!),
     getEmployeeIdByName(),
   ]);
 
@@ -18,16 +18,16 @@ async function run() {
   let skipped = 0;
 
   for (const row of rows) {
-    const built = buildSnapshotValues(
+    const built = buildRecurringSnapshotValues(
       {
         category: row.get("Category"),
         paid: row.get("Paid"),
         namaService: row.get("Nama Service"),
         dpp: row.get("DPP"),
-        prorate: row.get("Prorate"),
-        upgrade: row.get("Upgrade"),
-        biayaAlat: row.get("Biaya Alat"),
-        setup: row.get("Setup"),
+        prorate: null,
+        upgrade: null,
+        biayaAlat: null,
+        setup: null,
         sales: row.get("Sales"),
         managerSales: row.get("Manager Sales"),
         aiInvoice: row.get("AI Invoice"),
@@ -43,7 +43,7 @@ async function run() {
         bulan: row.get("Bulan"),
         telatBulan: row.get("Telat (Bulan)"),
         biayaReferral: row.get("Biaya Referral"),
-        referralName: row.get("Referral"),
+        referralName: row.get("Reseller"),
       },
       employeeMap,
     );
@@ -56,7 +56,7 @@ async function run() {
     values.push([sheetTitle, ...built]);
   }
 
-  await replaceSnapshotsForPeriod(sheetTitle, values, NEW_CUSTOMER_TYPES);
+  await replaceSnapshotsForPeriod(sheetTitle, values, RECURRING_TYPES);
 
   console.log(`Selesai. Ditambahkan: ${values.length}, dilewati: ${skipped}.`);
   await endPool();

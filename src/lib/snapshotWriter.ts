@@ -8,17 +8,24 @@ const SNAPSHOT_COLUMNS = `
 `;
 
 /**
- * Replaces every snapshots row for `period` with `rows` inside one
- * transaction, so a re-run swaps the period's data atomically — other
- * queries never observe an empty table in between, since MySQL hides
- * uncommitted changes from other sessions.
+ * Replaces every snapshots row for `period` whose `type` is in `types`
+ * with `rows`, inside one transaction — so a re-run swaps that slice of
+ * the period's data atomically (other queries never observe an empty
+ * table in between, since MySQL hides uncommitted changes from other
+ * sessions). Scoping the delete by `type` keeps this job's re-run from
+ * wiping out rows a different job (e.g. old-customer vs new-customer)
+ * wrote for the same period.
  */
 export async function replaceSnapshotsForPeriod(
   period: string,
   rows: any[][],
+  types: string[],
 ): Promise<void> {
   await withTransaction(async (txQuery) => {
-    await txQuery("DELETE FROM snapshots WHERE period = ?", [period]);
+    await txQuery("DELETE FROM snapshots WHERE period = ? AND type IN (?)", [
+      period,
+      types,
+    ]);
 
     if (rows.length > 0) {
       await txQuery(
