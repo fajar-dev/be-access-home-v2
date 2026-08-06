@@ -31,3 +31,24 @@ export type RawSnapshotInput = {
   referralName: Scalar;
   businessOperation?: Scalar;
 };
+
+export interface ISnapshotRepository {
+  /**
+   * Replaces every snapshots row for `period` whose `type` is in `types`
+   * with `rows`, atomically — see snapshot.repository.ts for why.
+   */
+  replaceForPeriod(period: string, rows: any[][], types: string[]): Promise<void>;
+}
+
+export interface ISnapshotService {
+  isAllowedServiceName(category: string | null | undefined, serviceName: Scalar): boolean;
+  /** Assembles the ordered values for a snapshots INSERT row. */
+  assembleValues(
+    input: RawSnapshotInput,
+    category: string | null | undefined,
+    sales: string | null,
+    manager: string | null,
+    subscription: number | null,
+    type: SnapshotType,
+  ): any[];
+}

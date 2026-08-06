@@ -1,12 +1,5 @@
-import { replaceSnapshotsForPeriod } from "../repository/snapshot.repository";
-import { getEmployeeIdByName } from "../service/employee.service";
-import {
-  buildRecurringSnapshotValues,
-  fetchOldCustomerSnapshotInputs,
-  RECURRING_TYPES,
-} from "../service/old-customer.service";
-import { endPool } from "../lib/app-db";
-import { endBillingPool } from "../lib/billing-db";
+import { container } from "../container";
+import { OldCustomerService } from "../service/old-customer.service";
 import { resolvePeriod } from "../helper/period.helper";
 
 async function run() {
@@ -14,15 +7,15 @@ async function run() {
   console.log(`Mengambil data billing (old customer) untuk periode "${period}"...`);
 
   const [inputs, employeeMap] = await Promise.all([
-    fetchOldCustomerSnapshotInputs(period),
-    getEmployeeIdByName(),
+    container.oldCustomerService.fetchSnapshotInputs(period),
+    container.employeeService.getEmployeeIdByName(),
   ]);
 
   const values: any[][] = [];
   let skipped = 0;
 
   for (const input of inputs) {
-    const built = buildRecurringSnapshotValues(input, employeeMap);
+    const built = container.oldCustomerService.buildRecurringSnapshotValues(input, employeeMap);
     if (!built) {
       skipped++;
       continue;
@@ -30,16 +23,14 @@ async function run() {
     values.push([period, ...built]);
   }
 
-  await replaceSnapshotsForPeriod(period, values, RECURRING_TYPES);
+  await container.snapshotRepository.replaceForPeriod(period, values, OldCustomerService.TYPES);
 
   console.log(`Selesai. Ditambahkan: ${values.length}, dilewati: ${skipped}.`);
-  await endPool();
-  await endBillingPool();
+  await container.closeConnections();
 }
 
 run().catch(async (error) => {
   console.error("Job gagal:", error);
-  await endPool().catch(() => {});
-  await endBillingPool().catch(() => {});
+  await container.closeConnections().catch(() => {});
   process.exit(1);
 });

@@ -1,9 +1,15 @@
 import type { GoogleSpreadsheetRow } from "google-spreadsheet";
-import { billingQuery } from "../lib/billing-db";
-import { getSheetRows } from "../lib/google-sheets";
+import type { BillingDatabase } from "../lib/billing-database";
+import type { GoogleSheetsClient } from "../lib/google-sheets-client";
 import { googleConfig } from "../config/google.config";
+import type {
+  INewCustomerRepository,
+  NewCustomerAccountRow,
+  NewCustomerInvoiceRow,
+  NewCustomerServiceRow,
+} from "../interface/new-customer.interface";
 
-export const SQL_INVOICE_RECEIPT = `
+const SQL_INVOICE_RECEIPT = `
 (SELECT
     cit.CustId \`CID\`,
     cit.CustServId 'CSID',
@@ -182,7 +188,7 @@ GROUP BY nci.AI
 ORDER BY nci.AI);
 `;
 
-export const SQL_ACCOUNT = `
+const SQL_ACCOUNT = `
 SELECT
     c.CustId AS \`CID\`,
     cs.CustServId AS \`CSID\`,
@@ -245,7 +251,7 @@ WHERE
     );
 `;
 
-export const SQL_SERVICE = `
+const SQL_SERVICE = `
 SELECT nci.AI, cit.ServiceId, cit.ServiceIdFor, s.ServiceType
 FROM
   NewCustomerInvoice nci
@@ -256,66 +262,25 @@ WHERE
   ((cit.date BETWEEN ? AND ?) OR (nci.TransDate BETWEEN ? AND ?))
 `;
 
-export type NewCustomerInvoiceRow = {
-  CID: string;
-  CSID: number | null;
-  SG: string;
-  "Tanggal Jatuh Tempo": unknown;
-  "Period Start": string;
-  "Period End": string;
-  Bulan: number;
-  DPP: unknown;
-  "Tanggal Input Pembayaran": unknown;
-  "Tanggal Transaksi Pembayaran": unknown;
-  "New Subscription": unknown;
-  "Invoice Prorata": unknown;
-  Code: string | null;
-  "Is Upgrade": number | null;
-  "Line Rental": unknown;
-  "AI Invoice": number;
-  "AI Receipt": number | null;
-};
+export class NewCustomerRepository implements INewCustomerRepository {
+  constructor(
+    private readonly billingDb: BillingDatabase,
+    private readonly sheets: GoogleSheetsClient,
+  ) {}
 
-export type NewCustomerAccountRow = {
-  CID: string;
-  CSID: number | null;
-  "Nama Customer": string | null;
-  Company: string | null;
-  Account: string | null;
-  "Nama Service": string | null;
-  "Service Id": string | null;
-  "Bandwidth (Mbps)": number | null;
-  Vendor: string | null;
-  Sales: string | null;
-  "Manager Sales": string | null;
-  CustStatus: string | null;
-  "Branch ID": string | null;
-};
+  findInvoices(params: string[]): Promise<NewCustomerInvoiceRow[]> {
+    return this.billingDb.query<NewCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
+  }
 
-export type NewCustomerServiceRow = {
-  AI: number;
-  ServiceId: string | null;
-  ServiceType: string | null;
-};
+  findAccounts(): Promise<NewCustomerAccountRow[]> {
+    return this.billingDb.query<NewCustomerAccountRow[]>(SQL_ACCOUNT);
+  }
 
-export function findNewCustomerInvoices(
-  params: string[],
-): Promise<NewCustomerInvoiceRow[]> {
-  return billingQuery<NewCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
-}
+  findServices(params: string[]): Promise<NewCustomerServiceRow[]> {
+    return this.billingDb.query<NewCustomerServiceRow[]>(SQL_SERVICE, params);
+  }
 
-export function findNewCustomerAccounts(): Promise<NewCustomerAccountRow[]> {
-  return billingQuery<NewCustomerAccountRow[]>(SQL_ACCOUNT);
-}
-
-export function findNewCustomerServices(
-  params: string[],
-): Promise<NewCustomerServiceRow[]> {
-  return billingQuery<NewCustomerServiceRow[]>(SQL_SERVICE, params);
-}
-
-export function findNewCustomerSheetRows(
-  period: string,
-): Promise<GoogleSpreadsheetRow[]> {
-  return getSheetRows(period, googleConfig.newCustomerSpreadsheetId);
+  findSheetRows(period: string): Promise<GoogleSpreadsheetRow[]> {
+    return this.sheets.getRows(period, googleConfig.newCustomerSpreadsheetId);
+  }
 }

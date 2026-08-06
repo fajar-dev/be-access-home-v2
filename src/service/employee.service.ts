@@ -1,53 +1,52 @@
-import { findAllEmployees } from "../repository/employee.repository";
-
-// Stray internal spaces (e.g. "M. Syafi' i" vs "M. Syafi'i") are a known
-// data-entry issue in the employee table, so matching ignores all
-// whitespace rather than just leading/trailing.
-function normalizeName(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "");
-}
-
-export async function getEmployeeIdByName(): Promise<Map<string, string>> {
-  const rows = await findAllEmployees();
-
-  const map = new Map<string, string>();
-  for (const row of rows) {
-    map.set(normalizeName(row.name), row.employee_id);
-  }
-  return map;
-}
-
-export function resolveEmployee(
-  rawName: string | null | undefined,
-  employeeMap: Map<string, string>,
-): string | null {
-  const trimmed = rawName?.trim();
-  if (!trimmed) return null;
-
-  const employeeId = employeeMap.get(normalizeName(trimmed));
-  return employeeId ?? trimmed;
-}
+import type { IEmployeeRepository, IEmployeeService, SalesResolution } from "../interface/employee.interface";
 
 const SALES_UNMATCHED_ALLOWED = new Set(["Customer Relation Officer"]);
 
-/**
- * Same lookup as resolveEmployee, but signals when the row should be
- * dropped: an unmatched Sales name is only kept raw for the
- * "Customer Relation Officer" placeholder, everything else is skipped.
- */
-export function resolveSales(
-  rawName: string | null | undefined,
-  employeeMap: Map<string, string>,
-): { value: string | null; skip: boolean } {
-  const trimmed = rawName?.trim();
-  if (!trimmed) return { value: null, skip: true };
+export class EmployeeService implements IEmployeeService {
+  constructor(private readonly employeeRepository: IEmployeeRepository) {}
 
-  const employeeId = employeeMap.get(normalizeName(trimmed));
-  if (employeeId) return { value: employeeId, skip: false };
-
-  if (SALES_UNMATCHED_ALLOWED.has(trimmed)) {
-    return { value: trimmed, skip: false };
+  // Stray internal spaces (e.g. "M. Syafi' i" vs "M. Syafi'i") are a known
+  // data-entry issue in the employee table, so matching ignores all
+  // whitespace rather than just leading/trailing.
+  private normalizeName(name: string): string {
+    return name.toLowerCase().replace(/\s+/g, "");
   }
 
-  return { value: null, skip: true };
+  async getEmployeeIdByName(): Promise<Map<string, string>> {
+    const rows = await this.employeeRepository.findAll();
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      map.set(this.normalizeName(row.name), row.employee_id);
+    }
+    return map;
+  }
+
+  resolveEmployee(
+    rawName: string | null | undefined,
+    employeeMap: Map<string, string>,
+  ): string | null {
+    const trimmed = rawName?.trim();
+    if (!trimmed) return null;
+
+    const employeeId = employeeMap.get(this.normalizeName(trimmed));
+    return employeeId ?? trimmed;
+  }
+
+  resolveSales(
+    rawName: string | null | undefined,
+    employeeMap: Map<string, string>,
+  ): SalesResolution {
+    const trimmed = rawName?.trim();
+    if (!trimmed) return { value: null, skip: true };
+
+    const employeeId = employeeMap.get(this.normalizeName(trimmed));
+    if (employeeId) return { value: employeeId, skip: false };
+
+    if (SALES_UNMATCHED_ALLOWED.has(trimmed)) {
+      return { value: trimmed, skip: false };
+    }
+
+    return { value: null, skip: true };
+  }
 }

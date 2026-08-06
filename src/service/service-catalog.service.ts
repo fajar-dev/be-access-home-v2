@@ -1,4 +1,7 @@
-import { findAllServices } from "../repository/service-catalog.repository";
+import type {
+  IServiceCatalogRepository,
+  IServiceCatalogService,
+} from "../interface/service-catalog.interface";
 
 function normalizeServiceType(name: string): string {
   return name.trim().toLowerCase();
@@ -12,23 +15,27 @@ function normalizeServiceType(name: string): string {
  * this deterministically keeps the first ServiceId in ID order rather than
  * picking arbitrarily.
  */
-export async function getServiceIdByName(): Promise<Map<string, string>> {
-  const rows = await findAllServices();
+export class ServiceCatalogService implements IServiceCatalogService {
+  constructor(private readonly serviceCatalogRepository: IServiceCatalogRepository) {}
 
-  const map = new Map<string, string>();
-  for (const row of rows) {
-    const key = normalizeServiceType(row.ServiceType);
-    if (!map.has(key)) map.set(key, row.ServiceId);
+  async getServiceIdByName(): Promise<Map<string, string>> {
+    const rows = await this.serviceCatalogRepository.findAll();
+
+    const map = new Map<string, string>();
+    for (const row of rows) {
+      const key = normalizeServiceType(row.ServiceType);
+      if (!map.has(key)) map.set(key, row.ServiceId);
+    }
+    return map;
   }
-  return map;
-}
 
-export function resolveServiceId(
-  serviceName: string | null | undefined,
-  serviceIdMap: Map<string, string>,
-): string | null {
-  const trimmed = serviceName?.trim();
-  if (!trimmed) return null;
+  resolveServiceId(
+    serviceName: string | null | undefined,
+    serviceIdMap: Map<string, string>,
+  ): string | null {
+    const trimmed = serviceName?.trim();
+    if (!trimmed) return null;
 
-  return serviceIdMap.get(normalizeServiceType(trimmed)) ?? null;
+    return serviceIdMap.get(normalizeServiceType(trimmed)) ?? null;
+  }
 }

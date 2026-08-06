@@ -1,10 +1,10 @@
-import { query } from "../lib/app-db";
+import type { AppDatabase } from "../lib/app-database";
+import type { EmployeeRow, IEmployeeRepository } from "../interface/employee.interface";
 
-export type EmployeeRow = {
-  employee_id: string;
-  name: string;
-};
+export class EmployeeRepository implements IEmployeeRepository {
+  constructor(private readonly db: AppDatabase) {}
 
-export function findAllEmployees(): Promise<EmployeeRow[]> {
-  return query<EmployeeRow[]>("SELECT employee_id, name FROM employee");
+  findAll(): Promise<EmployeeRow[]> {
+    return this.db.query<EmployeeRow[]>("SELECT employee_id, name FROM employee");
+  }
 }

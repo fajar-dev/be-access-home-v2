@@ -1,12 +1,17 @@
 import type { GoogleSpreadsheetRow } from "google-spreadsheet";
-import { billingQuery } from "../lib/billing-db";
-import { getSheetRows } from "../lib/google-sheets";
+import type { BillingDatabase } from "../lib/billing-database";
+import type { GoogleSheetsClient } from "../lib/google-sheets-client";
 import { googleConfig } from "../config/google.config";
+import type {
+  IOldCustomerRepository,
+  OldCustomerAccountRow,
+  OldCustomerInvoiceRow,
+} from "../interface/old-customer.interface";
 
 // InvoiceType 8 is only included for customers listed in an Apps Script
 // property (INCLUDE_CUSTOMER_ID) we have no access to here, so it's
 // excluded unconditionally — matching that property's default (unset/empty).
-export const SQL_INVOICE_RECEIPT = `
+const SQL_INVOICE_RECEIPT = `
 SELECT
     cit.CustId \`CID\`,
     cit.CustServId 'CSID',
@@ -63,7 +68,7 @@ HAVING DPP > 0
 ORDER BY nci.AI;
 `;
 
-export const SQL_ACCOUNT = `
+const SQL_ACCOUNT = `
 SELECT
     c.CustId AS \`CID\`,
     cs.CustServId AS \`CSID\`,
@@ -113,47 +118,21 @@ WHERE
     AND IFNULL(bce.type, 'customer') != 'internal';
 `;
 
-export type OldCustomerInvoiceRow = {
-  CID: string;
-  CSID: number | null;
-  SG: string | null;
-  "Tanggal Jatuh Tempo": unknown;
-  Bulan: number | null;
-  DPP: unknown;
-  Paid: number;
-  "Tanggal Input Pembayaran": unknown;
-  "Tanggal Transaksi Pembayaran": unknown;
-  "AI Invoice": number;
-  "AI Receipt": number | null;
-  "Nama Service": string | null;
-  "Line Rental": unknown;
-  SID: string | null;
-  "Business Operation": string | null;
-};
+export class OldCustomerRepository implements IOldCustomerRepository {
+  constructor(
+    private readonly billingDb: BillingDatabase,
+    private readonly sheets: GoogleSheetsClient,
+  ) {}
 
-export type OldCustomerAccountRow = {
-  CID: string;
-  CSID: number | null;
-  "Nama Customer": string | null;
-  Company: string | null;
-  Account: string | null;
-  Vendor: string | null;
-  Sales: string | null;
-  "Manager Sales": string | null;
-};
+  findInvoices(params: string[]): Promise<OldCustomerInvoiceRow[]> {
+    return this.billingDb.query<OldCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
+  }
 
-export function findOldCustomerInvoices(
-  params: string[],
-): Promise<OldCustomerInvoiceRow[]> {
-  return billingQuery<OldCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
-}
+  findAccounts(): Promise<OldCustomerAccountRow[]> {
+    return this.billingDb.query<OldCustomerAccountRow[]>(SQL_ACCOUNT);
+  }
 
-export function findOldCustomerAccounts(): Promise<OldCustomerAccountRow[]> {
-  return billingQuery<OldCustomerAccountRow[]>(SQL_ACCOUNT);
-}
-
-export function findOldCustomerSheetRows(
-  period: string,
-): Promise<GoogleSpreadsheetRow[]> {
-  return getSheetRows(period, googleConfig.oldCustomerSpreadsheetId);
+  findSheetRows(period: string): Promise<GoogleSpreadsheetRow[]> {
+    return this.sheets.getRows(period, googleConfig.oldCustomerSpreadsheetId);
+  }
 }

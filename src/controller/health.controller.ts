@@ -1,5 +1,7 @@
 import type { Context } from "hono";
 
-export function getHealth(c: Context) {
-  return c.json({ status: "ok" });
+export class HealthController {
+  getHealth(c: Context) {
+    return c.json({ status: "ok" });
+  }
 }

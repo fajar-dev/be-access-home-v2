@@ -1,14 +1,5 @@
-import { findOldCustomerSheetRows } from "../repository/old-customer.repository";
-import { replaceSnapshotsForPeriod } from "../repository/snapshot.repository";
-import { getEmployeeIdByName } from "../service/employee.service";
-import { getServiceIdByName } from "../service/service-catalog.service";
-import {
-  buildRecurringSnapshotValues,
-  mapSheetRowToSnapshotInput,
-  RECURRING_TYPES,
-} from "../service/old-customer.service";
-import { endPool } from "../lib/app-db";
-import { endBillingPool } from "../lib/billing-db";
+import { container } from "../container";
+import { OldCustomerService } from "../service/old-customer.service";
 import { resolvePeriod } from "../helper/period.helper";
 
 async function run() {
@@ -16,19 +7,17 @@ async function run() {
   console.log(`Mengambil data dari sheet "${period}"...`);
 
   const [rows, employeeMap, serviceIdMap] = await Promise.all([
-    findOldCustomerSheetRows(period),
-    getEmployeeIdByName(),
-    getServiceIdByName(),
+    container.oldCustomerRepository.findSheetRows(period),
+    container.employeeService.getEmployeeIdByName(),
+    container.serviceCatalogService.getServiceIdByName(),
   ]);
 
   const values: any[][] = [];
   let skipped = 0;
 
   for (const row of rows) {
-    const built = buildRecurringSnapshotValues(
-      mapSheetRowToSnapshotInput(row, serviceIdMap),
-      employeeMap,
-    );
+    const input = container.oldCustomerService.mapSheetRowToSnapshotInput(row, serviceIdMap);
+    const built = container.oldCustomerService.buildRecurringSnapshotValues(input, employeeMap);
     if (!built) {
       skipped++;
       continue;
@@ -36,16 +25,14 @@ async function run() {
     values.push([period, ...built]);
   }
 
-  await replaceSnapshotsForPeriod(period, values, RECURRING_TYPES);
+  await container.snapshotRepository.replaceForPeriod(period, values, OldCustomerService.TYPES);
 
   console.log(`Selesai. Ditambahkan: ${values.length}, dilewati: ${skipped}.`);
-  await endPool();
-  await endBillingPool();
+  await container.closeConnections();
 }
 
 run().catch(async (error) => {
   console.error("Job gagal:", error);
-  await endPool().catch(() => {});
-  await endBillingPool().catch(() => {});
+  await container.closeConnections().catch(() => {});
   process.exit(1);
 });
