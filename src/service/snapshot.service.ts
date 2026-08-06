@@ -39,6 +39,7 @@ export function assembleValues(
     input.company?.toString().trim() || null,
     parseIntOrNull(input.csid),
     input.account?.toString().trim() || null,
+    input.serviceId?.toString().trim() || null,
     input.namaService?.toString().trim() || null,
     category,
     sales,

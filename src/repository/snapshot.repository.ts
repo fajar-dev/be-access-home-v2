@@ -2,7 +2,7 @@ import { withTransaction } from "../lib/app-db";
 
 const SNAPSHOT_COLUMNS = `
   period, ai_invoice, ai_receipt, customer_id, customer_name, customer_company,
-  customer_service_id, customer_service_account, service_name, category,
+  customer_service_id, customer_service_account, service_id, service_name, category,
   sales, manager, vendor, subscription, line_rental, paid_date, month,
   late_month, type, referral_fee, referral_name, business_operation
 `;

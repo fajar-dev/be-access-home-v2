@@ -21,6 +21,7 @@ export type RawSnapshotInput = {
   company: Scalar;
   csid: Scalar;
   account: Scalar;
+  serviceId: Scalar;
   vendor: Scalar;
   lineRental: Scalar;
   paidDate: Scalar;

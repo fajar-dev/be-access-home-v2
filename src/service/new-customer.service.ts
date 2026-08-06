@@ -9,6 +9,7 @@ import {
   type NewCustomerAccountRow,
 } from "../repository/new-customer.repository";
 import { resolveEmployee, resolveSales } from "./employee.service";
+import { resolveServiceId } from "./service-catalog.service";
 import { assembleValues, isAllowedServiceName } from "./snapshot.service";
 
 export const ALLOWED_CATEGORIES = ["Alat", "Setup", "FO Prepaid"] as const;
@@ -127,8 +128,10 @@ export async function fetchNewCustomerSnapshotInputs(
   }
 
   const serviceLabelByAi = new Map<number, string>();
+  const serviceIdByAi = new Map<number, string>();
   for (const row of serviceRows) {
     if (row.ServiceType) serviceLabelByAi.set(row.AI, row.ServiceType);
+    if (row.ServiceId) serviceIdByAi.set(row.AI, row.ServiceId);
   }
 
   const results: RawSnapshotInput[] = [];
@@ -158,6 +161,11 @@ export async function fetchNewCustomerSnapshotInputs(
     let serviceLabel = serviceLabelByAi.get(inv["AI Invoice"]) ?? "";
     if (!serviceLabel && account) {
       serviceLabel = account["Nama Service"] ?? "";
+    }
+
+    let serviceId = serviceIdByAi.get(inv["AI Invoice"]) ?? "";
+    if (!serviceId && account) {
+      serviceId = account["Service Id"] ?? "";
     }
 
     let bulan: number = inv.Bulan;
@@ -213,6 +221,7 @@ export async function fetchNewCustomerSnapshotInputs(
     results.push({
       category,
       paid: isPaid,
+      serviceId: serviceId || null,
       namaService: serviceLabel,
       dpp,
       prorate,
@@ -241,12 +250,21 @@ export async function fetchNewCustomerSnapshotInputs(
   return results;
 }
 
-/** Maps a new-customer Google Sheet row into RawSnapshotInput. */
-export function mapSheetRowToSnapshotInput(row: GoogleSpreadsheetRow): RawSnapshotInput {
+/**
+ * Maps a new-customer Google Sheet row into RawSnapshotInput. The sheet has
+ * no ServiceId column, so it's resolved by looking the service name up
+ * against the billing DB's Services catalog (see service-catalog.service.ts
+ * for why this is best-effort, not a guaranteed match).
+ */
+export function mapSheetRowToSnapshotInput(
+  row: GoogleSpreadsheetRow,
+  serviceIdMap: Map<string, string>,
+): RawSnapshotInput {
   const get = (header: string): string | null | undefined => row.get(header);
   return {
     category: get("Category"),
     paid: get("Paid"),
+    serviceId: resolveServiceId(get("Nama Service"), serviceIdMap),
     namaService: get("Nama Service"),
     dpp: get("DPP"),
     prorate: get("Prorate"),

@@ -8,6 +8,7 @@ import {
   type OldCustomerAccountRow,
 } from "../repository/old-customer.repository";
 import { resolveEmployee, resolveSales } from "./employee.service";
+import { resolveServiceId } from "./service-catalog.service";
 import { assembleValues, isAllowedServiceName } from "./snapshot.service";
 
 // `type` value this domain writes — used to scope replaceSnapshotsForPeriod
@@ -158,6 +159,7 @@ export async function fetchOldCustomerSnapshotInputs(
     results.push({
       category,
       paid: inv.Paid,
+      serviceId: inv.SID,
       namaService: inv["Nama Service"],
       dpp: toNumber(inv.DPP),
       prorate: null,
@@ -190,12 +192,21 @@ export async function fetchOldCustomerSnapshotInputs(
   return results;
 }
 
-/** Maps an old-customer Google Sheet row into RawSnapshotInput. */
-export function mapSheetRowToSnapshotInput(row: GoogleSpreadsheetRow): RawSnapshotInput {
+/**
+ * Maps an old-customer Google Sheet row into RawSnapshotInput. The sheet has
+ * no ServiceId column, so it's resolved by looking the service name up
+ * against the billing DB's Services catalog (see service-catalog.service.ts
+ * for why this is best-effort, not a guaranteed match).
+ */
+export function mapSheetRowToSnapshotInput(
+  row: GoogleSpreadsheetRow,
+  serviceIdMap: Map<string, string>,
+): RawSnapshotInput {
   const get = (header: string): string | null | undefined => row.get(header);
   return {
     category: get("Category"),
     paid: get("Paid"),
+    serviceId: resolveServiceId(get("Nama Service"), serviceIdMap),
     namaService: get("Nama Service"),
     dpp: get("DPP"),
     prorate: null,

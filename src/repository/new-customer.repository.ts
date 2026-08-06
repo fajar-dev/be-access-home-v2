@@ -190,6 +190,7 @@ SELECT
     c.CustCompany AS \`Company\`,
     cs.CustAccName AS \`Account\`,
     IFNULL(cs.ServiceType, s.ServiceType) AS \`Nama Service\`,
+    s.ServiceId \`Service Id\`,
     s.ServiceGroup AS \`Category\`,
     IFNULL(csa.first_active, cs.CustActivationDate) AS \`Awal Aktif\`,
     IF(ss.NormalUpCeil > ss.NormalDownCeil, FLOOR(ss.NormalUpCeil/1024), FLOOR(ss.NormalDownCeil/1024)) AS \`Bandwidth (Mbps)\`,
@@ -282,6 +283,7 @@ export type NewCustomerAccountRow = {
   Company: string | null;
   Account: string | null;
   "Nama Service": string | null;
+  "Service Id": string | null;
   "Bandwidth (Mbps)": number | null;
   Vendor: string | null;
   Sales: string | null;
@@ -292,6 +294,7 @@ export type NewCustomerAccountRow = {
 
 export type NewCustomerServiceRow = {
   AI: number;
+  ServiceId: string | null;
   ServiceType: string | null;
 };
 

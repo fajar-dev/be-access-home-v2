@@ -8,6 +8,7 @@ CREATE TABLE snapshots(
     customer_company VARCHAR(255) NULL,
     customer_service_id BIGINT NULL,
     customer_service_account VARCHAR(255) NULL,
+    service_id VARCHAR(20) NULL,
     service_name VARCHAR(255) NULL,
     category VARCHAR(255) NULL,
     sales VARCHAR(255) NULL,
