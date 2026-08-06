@@ -4,10 +4,13 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --hot index.ts"
+    "dev": "bun run --hot index.ts",
+    "invoice:new-customer": "bun run src/job/invoice-new-customer.ts",
+    "invoice:new-customer:db": "bun run src/job/invoice-new-customer-db.ts"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/mysql": "^2.15.27"
   },
   "peerDependencies": {
     "typescript": "^5"

@@ -1,0 +1,30 @@
+import { withTransaction } from "./db";
+
+const SNAPSHOT_COLUMNS = `
+  period, ai_invoice, ai_receipt, customer_id, customer_name, customer_company,
+  customer_service_id, customer_service_account, service_name, service_category,
+  sales, manager, vendor, subscription, line_rental, paid_date, month,
+  late_month, type, referral_fee, referral_name
+`;
+
+/**
+ * Replaces every snapshots row for `period` with `rows` inside one
+ * transaction, so a re-run swaps the period's data atomically — other
+ * queries never observe an empty table in between, since MySQL hides
+ * uncommitted changes from other sessions.
+ */
+export async function replaceSnapshotsForPeriod(
+  period: string,
+  rows: any[][],
+): Promise<void> {
+  await withTransaction(async (txQuery) => {
+    await txQuery("DELETE FROM snapshots WHERE period = ?", [period]);
+
+    if (rows.length > 0) {
+      await txQuery(
+        `INSERT INTO snapshots (${SNAPSHOT_COLUMNS}) VALUES ?`,
+        [rows],
+      );
+    }
+  });
+}
