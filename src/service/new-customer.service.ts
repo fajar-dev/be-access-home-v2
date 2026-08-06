@@ -1,6 +1,22 @@
-import { nisQuery } from "./nisDb";
-import { SQL_INVOICE_RECEIPT, SQL_ACCOUNT, SQL_SERVICE } from "./billingQueries";
-import type { RawSnapshotInput } from "./snapshotRow";
+import type { GoogleSpreadsheetRow } from "google-spreadsheet";
+import { getDateRangeForPeriod } from "../helper/period.helper";
+import { parseNumber } from "../helper/parse.helper";
+import type { RawSnapshotInput, Scalar } from "../interface/snapshot.interface";
+import {
+  findNewCustomerAccounts,
+  findNewCustomerInvoices,
+  findNewCustomerServices,
+  type NewCustomerAccountRow,
+} from "../repository/new-customer.repository";
+import { resolveEmployee, resolveSales } from "./employee.service";
+import { assembleValues, isAllowedServiceName } from "./snapshot.service";
+
+export const ALLOWED_CATEGORIES = ["Alat", "Setup", "FO Prepaid"] as const;
+export type AllowedCategory = (typeof ALLOWED_CATEGORIES)[number];
+
+// `type` values this domain writes — used to scope replaceSnapshotsForPeriod
+// so a re-run never touches the old-customer (recurring) rows for the same period.
+export const NEW_CUSTOMER_TYPES = ["new", "upgrade", "prorate"];
 
 // Stock-invoice codes that represent a setup charge rather than equipment.
 const SETUP_CODE = [
@@ -22,20 +38,6 @@ function pad2(n: number): string {
 
 function toSqlDate(d: Date): string {
   return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-}
-
-/**
- * The billing cycle runs the 26th of the previous month through the 25th
- * of the target period, mirroring the Apps Script's getStartDate/getEndDate.
- */
-export function getDateRangeForPeriod(period: string): { start: Date; end: Date } {
-  const year = Number(period.slice(0, 4));
-  const month = Number(period.slice(4, 6));
-
-  const start = new Date(year, month - 2, 26, 0, 0, 0, 0);
-  const end = new Date(year, month - 1, 25, 23, 59, 59, 0);
-
-  return { start, end };
 }
 
 function toNumber(value: unknown): number | null {
@@ -79,10 +81,7 @@ function mapCategory(sg: string | null, serviceName: string | null): string {
   }
 }
 
-function getLateInMonth(
-  dueDate: unknown,
-  paymentDateRaw: unknown,
-): number | null {
+function getLateInMonth(dueDate: unknown, paymentDateRaw: unknown): number | null {
   if (paymentDateRaw === null || paymentDateRaw === undefined) return null;
   const paymentDate = new Date(paymentDateRaw as any);
   if (Number.isNaN(paymentDate.getTime())) return null;
@@ -99,47 +98,8 @@ function getLateInMonth(
   return result || null;
 }
 
-type InvoiceRow = {
-  CID: string;
-  CSID: number | null;
-  SG: string;
-  "Tanggal Jatuh Tempo": unknown;
-  "Period Start": string;
-  "Period End": string;
-  Bulan: number;
-  DPP: unknown;
-  "Tanggal Input Pembayaran": unknown;
-  "Tanggal Transaksi Pembayaran": unknown;
-  "New Subscription": unknown;
-  "Invoice Prorata": unknown;
-  Code: string | null;
-  "Is Upgrade": number | null;
-  "Line Rental": unknown;
-  "AI Invoice": number;
-  "AI Receipt": number | null;
-};
-
-type AccountRow = {
-  CID: string;
-  CSID: number | null;
-  "Nama Customer": string | null;
-  Company: string | null;
-  Account: string | null;
-  "Nama Service": string | null;
-  "Bandwidth (Mbps)": number | null;
-  Vendor: string | null;
-  Sales: string | null;
-  "Manager Sales": string | null;
-  CustStatus: string | null;
-  "Branch ID": string | null;
-};
-
-type ServiceRow = {
-  AI: number;
-  ServiceType: string | null;
-};
-
-export async function fetchBillingSnapshotInputs(
+/** Pulls invoice/account/service rows from the billing DB and shapes them into RawSnapshotInput. */
+export async function fetchNewCustomerSnapshotInputs(
   period: string,
 ): Promise<RawSnapshotInput[]> {
   const { start, end } = getDateRangeForPeriod(period);
@@ -149,18 +109,18 @@ export async function fetchBillingSnapshotInputs(
   // Run sequentially — these are heavy queries (tens of thousands of rows)
   // and running them concurrently on the pool has been observed to trip a
   // "Connection lost" error against this server.
-  const invoiceRows = await nisQuery<InvoiceRow[]>(SQL_INVOICE_RECEIPT, [
+  const invoiceRows = await findNewCustomerInvoices([
     startStr, endStr, startStr, endStr,
     startStr, endStr, startStr, endStr,
     startStr, endStr, startStr, endStr,
   ]);
-  const accountRows = await nisQuery<AccountRow[]>(SQL_ACCOUNT);
-  const serviceRows = await nisQuery<ServiceRow[]>(SQL_SERVICE, [
+  const accountRows = await findNewCustomerAccounts();
+  const serviceRows = await findNewCustomerServices([
     startStr, endStr, startStr, endStr,
   ]);
 
-  const accountByCsid = new Map<number, AccountRow>();
-  const accountByCid = new Map<string, AccountRow>();
+  const accountByCsid = new Map<number, NewCustomerAccountRow>();
+  const accountByCid = new Map<string, NewCustomerAccountRow>();
   for (const row of accountRows) {
     if (row.CSID) accountByCsid.set(row.CSID, row);
     accountByCid.set(row.CID, row);
@@ -279,4 +239,109 @@ export async function fetchBillingSnapshotInputs(
   }
 
   return results;
+}
+
+/** Maps a new-customer Google Sheet row into RawSnapshotInput. */
+export function mapSheetRowToSnapshotInput(row: GoogleSpreadsheetRow): RawSnapshotInput {
+  const get = (header: string): string | null | undefined => row.get(header);
+  return {
+    category: get("Category"),
+    paid: get("Paid"),
+    namaService: get("Nama Service"),
+    dpp: get("DPP"),
+    prorate: get("Prorate"),
+    upgrade: get("Upgrade"),
+    biayaAlat: get("Biaya Alat"),
+    setup: get("Setup"),
+    sales: get("Sales"),
+    managerSales: get("Manager Sales"),
+    aiInvoice: get("AI Invoice"),
+    aiReceipt: get("AI Receipt"),
+    cid: get("CID"),
+    namaCustomer: get("Nama Customer"),
+    company: get("Company"),
+    csid: get("CSID"),
+    account: get("Account"),
+    vendor: get("Vendor"),
+    lineRental: get("Line Rental"),
+    paidDate: get("Tanggal Input Pembayaran"),
+    bulan: get("Bulan"),
+    telatBulan: get("Telat (Bulan)"),
+    biayaReferral: get("Biaya Referral"),
+    referralName: get("Referral"),
+  };
+}
+
+function resolveSubscription(
+  category: AllowedCategory,
+  fields: {
+    dpp: Scalar;
+    prorate: Scalar;
+    upgrade: Scalar;
+    biayaAlat: Scalar;
+    setup: Scalar;
+  },
+): { subscription: number | null; type: "new" | "upgrade" | "prorate" } {
+  if (category === "FO Prepaid") {
+    const dpp = parseNumber(fields.dpp);
+    if (dpp !== null) {
+      return { subscription: dpp, type: "new" };
+    }
+
+    const prorateEmpty = parseNumber(fields.prorate) === null;
+    if (prorateEmpty) {
+      return { subscription: parseNumber(fields.upgrade), type: "upgrade" };
+    }
+
+    return { subscription: parseNumber(fields.prorate), type: "prorate" };
+  }
+
+  if (category === "Alat") {
+    return { subscription: parseNumber(fields.biayaAlat), type: "new" };
+  }
+
+  // Setup
+  return { subscription: parseNumber(fields.setup), type: "new" };
+}
+
+/**
+ * Applies the new-customer category allowlist, the paid gate, the Alat/Setup
+ * service-name prefix rule, and the subscription+type derivation. Returns
+ * the ordered values for the snapshots INSERT, or null if the row should be
+ * skipped.
+ */
+export function buildSnapshotValues(
+  input: RawSnapshotInput,
+  employeeMap: Map<string, string>,
+): any[] | null {
+  const category = input.category?.toString().trim() as
+    | AllowedCategory
+    | undefined;
+  const paid = input.paid?.toString().trim();
+
+  if (!category || !ALLOWED_CATEGORIES.includes(category) || paid !== "1") {
+    return null;
+  }
+
+  if (!isAllowedServiceName(category, input.namaService)) {
+    return null;
+  }
+
+  const { subscription, type } = resolveSubscription(category, {
+    dpp: input.dpp,
+    prorate: input.prorate,
+    upgrade: input.upgrade,
+    biayaAlat: input.biayaAlat,
+    setup: input.setup,
+  });
+
+  const { value: sales, skip: skipSales } = resolveSales(
+    input.sales?.toString(),
+    employeeMap,
+  );
+  if (skipSales) return null;
+
+  const manager = resolveEmployee(input.managerSales?.toString(), employeeMap);
+
+  return assembleValues(input, category, sales, manager, subscription, type);
 }

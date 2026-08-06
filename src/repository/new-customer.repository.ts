@@ -1,3 +1,8 @@
+import type { GoogleSpreadsheetRow } from "google-spreadsheet";
+import { billingQuery } from "../lib/billing-db";
+import { getSheetRows } from "../lib/google-sheets";
+import { googleConfig } from "../config/google.config";
+
 export const SQL_INVOICE_RECEIPT = `
 (SELECT
     cit.CustId \`CID\`,
@@ -249,3 +254,65 @@ WHERE
   nci.Type = 'internet' AND
   ((cit.date BETWEEN ? AND ?) OR (nci.TransDate BETWEEN ? AND ?))
 `;
+
+export type NewCustomerInvoiceRow = {
+  CID: string;
+  CSID: number | null;
+  SG: string;
+  "Tanggal Jatuh Tempo": unknown;
+  "Period Start": string;
+  "Period End": string;
+  Bulan: number;
+  DPP: unknown;
+  "Tanggal Input Pembayaran": unknown;
+  "Tanggal Transaksi Pembayaran": unknown;
+  "New Subscription": unknown;
+  "Invoice Prorata": unknown;
+  Code: string | null;
+  "Is Upgrade": number | null;
+  "Line Rental": unknown;
+  "AI Invoice": number;
+  "AI Receipt": number | null;
+};
+
+export type NewCustomerAccountRow = {
+  CID: string;
+  CSID: number | null;
+  "Nama Customer": string | null;
+  Company: string | null;
+  Account: string | null;
+  "Nama Service": string | null;
+  "Bandwidth (Mbps)": number | null;
+  Vendor: string | null;
+  Sales: string | null;
+  "Manager Sales": string | null;
+  CustStatus: string | null;
+  "Branch ID": string | null;
+};
+
+export type NewCustomerServiceRow = {
+  AI: number;
+  ServiceType: string | null;
+};
+
+export function findNewCustomerInvoices(
+  params: string[],
+): Promise<NewCustomerInvoiceRow[]> {
+  return billingQuery<NewCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
+}
+
+export function findNewCustomerAccounts(): Promise<NewCustomerAccountRow[]> {
+  return billingQuery<NewCustomerAccountRow[]>(SQL_ACCOUNT);
+}
+
+export function findNewCustomerServices(
+  params: string[],
+): Promise<NewCustomerServiceRow[]> {
+  return billingQuery<NewCustomerServiceRow[]>(SQL_SERVICE, params);
+}
+
+export function findNewCustomerSheetRows(
+  period: string,
+): Promise<GoogleSpreadsheetRow[]> {
+  return getSheetRows(period, googleConfig.newCustomerSpreadsheetId);
+}

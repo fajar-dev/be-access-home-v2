@@ -1,3 +1,8 @@
+import type { GoogleSpreadsheetRow } from "google-spreadsheet";
+import { billingQuery } from "../lib/billing-db";
+import { getSheetRows } from "../lib/google-sheets";
+import { googleConfig } from "../config/google.config";
+
 // InvoiceType 8 is only included for customers listed in an Apps Script
 // property (INCLUDE_CUSTOMER_ID) we have no access to here, so it's
 // excluded unconditionally — matching that property's default (unset/empty).
@@ -20,7 +25,9 @@ SELECT
     s.ServiceType AS \`Nama Service\`,
     (ncic.line_rental / IFNULL(itm.Month, 1)) \`Line Rental\`,
     IFNULL(ncic.is_prorata, 0) \`Is Prorata\`,
-    cit.ServiceId \`SID\`
+    cit.ServiceId \`SID\`,
+    s.ServiceGroup \`Service Master Group\`,
+    s.BusinessOperation \`Business Operation\`
 FROM
     CustomerInvoiceTemp cit
     LEFT JOIN CustomerInvoiceTemp_Custom citc ON cit.InvoiceNum = citc.InvoiceNum AND cit.Urut = citc.Urut
@@ -50,6 +57,7 @@ WHERE cit.RInvoiceNum = 0
     AND cit.InvoiceType != 8
     AND IFNULL(bce.type, 'customer') != 'internal'
     AND cs.CustStatus != 'FR'
+    AND IFNULL(s.ServiceGroup, '') != 'DO'
 GROUP BY nci.AI
 HAVING DPP > 0
 ORDER BY nci.AI;
@@ -104,3 +112,48 @@ WHERE
     IFNULL(c.DisplayBranchId, c.BranchId) IN ('020', '062', '025', '027', '029')
     AND IFNULL(bce.type, 'customer') != 'internal';
 `;
+
+export type OldCustomerInvoiceRow = {
+  CID: string;
+  CSID: number | null;
+  SG: string | null;
+  "Tanggal Jatuh Tempo": unknown;
+  Bulan: number | null;
+  DPP: unknown;
+  Paid: number;
+  "Tanggal Input Pembayaran": unknown;
+  "Tanggal Transaksi Pembayaran": unknown;
+  "AI Invoice": number;
+  "AI Receipt": number | null;
+  "Nama Service": string | null;
+  "Line Rental": unknown;
+  SID: string | null;
+  "Business Operation": string | null;
+};
+
+export type OldCustomerAccountRow = {
+  CID: string;
+  CSID: number | null;
+  "Nama Customer": string | null;
+  Company: string | null;
+  Account: string | null;
+  Vendor: string | null;
+  Sales: string | null;
+  "Manager Sales": string | null;
+};
+
+export function findOldCustomerInvoices(
+  params: string[],
+): Promise<OldCustomerInvoiceRow[]> {
+  return billingQuery<OldCustomerInvoiceRow[]>(SQL_INVOICE_RECEIPT, params);
+}
+
+export function findOldCustomerAccounts(): Promise<OldCustomerAccountRow[]> {
+  return billingQuery<OldCustomerAccountRow[]>(SQL_ACCOUNT);
+}
+
+export function findOldCustomerSheetRows(
+  period: string,
+): Promise<GoogleSpreadsheetRow[]> {
+  return getSheetRows(period, googleConfig.oldCustomerSpreadsheetId);
+}

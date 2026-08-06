@@ -9,7 +9,7 @@ CREATE TABLE snapshots(
     customer_service_id BIGINT NULL,
     customer_service_account VARCHAR(255) NULL,
     service_name VARCHAR(255) NULL,
-    service_category VARCHAR(255) NULL,
+    category VARCHAR(255) NULL,
     sales VARCHAR(255) NULL,
     manager VARCHAR(255) NULL,
     vendor VARCHAR(255) NULL,
@@ -22,6 +22,7 @@ CREATE TABLE snapshots(
     referral_fee DECIMAL(15,2) DEFAULT 0,
     referral_type ENUM('OTC','Cashback', 'Monthly') NULL DEFAULT NULL,
     referral_name VARCHAR(255) NULL,
+    business_operation ENUM('Internal', 'Resell') NULL DEFAULT NULL,
     is_approved BOOLEAN NOT NULL DEFAULT FALSE,
     INDEX idx_snapshots_period (period)
 );

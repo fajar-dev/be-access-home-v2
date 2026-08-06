@@ -1,9 +1,4 @@
-import { query } from "./db";
-
-type EmployeeRow = {
-  employee_id: string;
-  name: string;
-};
+import { findAllEmployees } from "../repository/employee.repository";
 
 // Stray internal spaces (e.g. "M. Syafi' i" vs "M. Syafi'i") are a known
 // data-entry issue in the employee table, so matching ignores all
@@ -13,9 +8,7 @@ function normalizeName(name: string): string {
 }
 
 export async function getEmployeeIdByName(): Promise<Map<string, string>> {
-  const rows = await query<EmployeeRow[]>(
-    "SELECT employee_id, name FROM employee",
-  );
+  const rows = await findAllEmployees();
 
   const map = new Map<string, string>();
   for (const row of rows) {

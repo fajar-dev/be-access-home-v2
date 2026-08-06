@@ -1,13 +1,14 @@
 import { GoogleSpreadsheet, type GoogleSpreadsheetRow } from "google-spreadsheet";
 import { JWT } from "google-auth-library";
+import { googleConfig } from "../config/google.config";
 
 export async function getSheetRows(
   sheetTitle: string,
   spreadsheetId: string,
 ): Promise<GoogleSpreadsheetRow[]> {
   const auth = new JWT({
-    email: process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
-    key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n"),
+    email: googleConfig.serviceAccountEmail,
+    key: googleConfig.privateKey,
     scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
   });
 

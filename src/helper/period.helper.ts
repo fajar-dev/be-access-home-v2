@@ -25,3 +25,18 @@ export function resolvePeriod(): string {
   const month = String(now.getMonth() + 1).padStart(2, "0");
   return `${year}${month}`;
 }
+
+/**
+ * The billing cycle runs the 26th of the previous month through the 25th
+ * of the target period, mirroring the Apps Script's getStartDate/getEndDate.
+ * Shared by both the new-customer and old-customer DB transforms.
+ */
+export function getDateRangeForPeriod(period: string): { start: Date; end: Date } {
+  const year = Number(period.slice(0, 4));
+  const month = Number(period.slice(4, 6));
+
+  const start = new Date(year, month - 2, 26, 0, 0, 0, 0);
+  const end = new Date(year, month - 1, 25, 23, 59, 59, 0);
+
+  return { start, end };
+}
