@@ -1,5 +1,6 @@
 import type { GoogleSpreadsheetRow } from "google-spreadsheet";
 import type { RawSnapshotInput } from "./snapshot.interface";
+import type { ServiceCatalogEntry } from "./service-catalog.interface";
 
 export type NewCustomerInvoiceRow = {
   CID: string;
@@ -54,7 +55,7 @@ export interface INewCustomerService {
   fetchSnapshotInputs(period: string): Promise<RawSnapshotInput[]>;
   mapSheetRowToSnapshotInput(
     row: GoogleSpreadsheetRow,
-    serviceIdMap: Map<string, string>,
+    catalog: Map<string, ServiceCatalogEntry>,
   ): RawSnapshotInput;
   buildSnapshotValues(
     input: RawSnapshotInput,

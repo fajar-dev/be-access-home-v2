@@ -7,7 +7,10 @@ import type {
   INewCustomerService,
   NewCustomerAccountRow,
 } from "../interface/new-customer.interface";
-import type { IServiceCatalogService } from "../interface/service-catalog.interface";
+import type {
+  IServiceCatalogService,
+  ServiceCatalogEntry,
+} from "../interface/service-catalog.interface";
 import type { ISnapshotService, RawSnapshotInput, Scalar } from "../interface/snapshot.interface";
 
 export const ALLOWED_CATEGORIES = ["Alat", "Setup", "FO Prepaid"] as const;
@@ -262,13 +265,13 @@ export class NewCustomerService implements INewCustomerService {
    */
   mapSheetRowToSnapshotInput(
     row: GoogleSpreadsheetRow,
-    serviceIdMap: Map<string, string>,
+    catalog: Map<string, ServiceCatalogEntry>,
   ): RawSnapshotInput {
     const get = (header: string): string | null | undefined => row.get(header);
     return {
       category: get("Category"),
       paid: get("Paid"),
-      serviceId: this.serviceCatalogService.resolveServiceId(get("Nama Service"), serviceIdMap),
+      serviceId: this.serviceCatalogService.resolveServiceId(get("Nama Service"), catalog),
       namaService: get("Nama Service"),
       dpp: get("DPP"),
       prorate: get("Prorate"),

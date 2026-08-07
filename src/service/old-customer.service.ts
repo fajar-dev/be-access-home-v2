@@ -1,6 +1,8 @@
 import type { GoogleSpreadsheetRow } from "google-spreadsheet";
 import { getDateRangeForPeriod } from "../helper/period.helper";
 import { parseNumber } from "../helper/parse.helper";
+import { normalizeBusinessOperation } from "../helper/business-operation.helper";
+import type { ServiceCatalogEntry } from "../interface/service-catalog.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
 import type {
   IOldCustomerRepository,
@@ -86,12 +88,6 @@ function mapCategory(sg: string | null, serviceId: string | null): string {
     default:
       return "Lain-lain";
   }
-}
-
-function mapBusinessOperation(value: string | null): "Internal" | "Resell" | null {
-  if (value === "internal") return "Internal";
-  if (value === "resell") return "Resell";
-  return null;
 }
 
 function getLateInMonth(dueDate: unknown, paymentDateRaw: unknown): number | null {
@@ -189,7 +185,7 @@ export class OldCustomerService implements IOldCustomerService {
         referralName: null,
         businessOperation:
           category === "Digital Business"
-            ? mapBusinessOperation(inv["Business Operation"])
+            ? normalizeBusinessOperation(inv["Business Operation"])
             : null,
       });
     }
@@ -199,19 +195,25 @@ export class OldCustomerService implements IOldCustomerService {
 
   /**
    * Maps an old-customer Google Sheet row into RawSnapshotInput. The sheet has
-   * no ServiceId column, so it's resolved by looking the service name up
-   * against the billing DB's Services catalog (see service-catalog.service.ts
-   * for why this is best-effort, not a guaranteed match).
+   * no ServiceId or BusinessOperation column, so both are resolved by looking
+   * the service name up against the billing DB's Services catalog (see
+   * service-catalog.service.ts for why this is best-effort, not a guaranteed
+   * match).
    */
   mapSheetRowToSnapshotInput(
     row: GoogleSpreadsheetRow,
-    serviceIdMap: Map<string, string>,
+    catalog: Map<string, ServiceCatalogEntry>,
   ): RawSnapshotInput {
     const get = (header: string): string | null | undefined => row.get(header);
+    const category = get("Category");
     return {
-      category: get("Category"),
+      category,
       paid: get("Paid"),
-      serviceId: this.serviceCatalogService.resolveServiceId(get("Nama Service"), serviceIdMap),
+      serviceId: this.serviceCatalogService.resolveServiceId(get("Nama Service"), catalog),
+      businessOperation:
+        category?.trim() === "Digital Business"
+          ? this.serviceCatalogService.resolveBusinessOperation(get("Nama Service"), catalog)
+          : null,
       namaService: get("Nama Service"),
       dpp: get("DPP"),
       prorate: null,
@@ -253,6 +255,13 @@ export class OldCustomerService implements IOldCustomerService {
     if (paid !== "1") return null;
 
     if (!this.snapshotService.isAllowedServiceName(category, input.namaService)) {
+      return null;
+    }
+
+    // Digital Business commission is driven entirely by Internal vs Resell
+    // (1% vs 0.5%), so a row we can't classify has no defined rate — drop it
+    // rather than guess. Applies to both the DB and sheet sources.
+    if (category === "Digital Business" && !input.businessOperation) {
       return null;
     }
 

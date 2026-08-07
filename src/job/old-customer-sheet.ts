@@ -6,17 +6,17 @@ async function run() {
   const period = resolvePeriod();
   console.log(`Mengambil data dari sheet "${period}"...`);
 
-  const [rows, employeeMap, serviceIdMap] = await Promise.all([
+  const [rows, employeeMap, catalog] = await Promise.all([
     container.oldCustomerRepository.findSheetRows(period),
     container.employeeService.getEmployeeIdByName(),
-    container.serviceCatalogService.getServiceIdByName(),
+    container.serviceCatalogService.getCatalogByName(),
   ]);
 
   const values: any[][] = [];
   let skipped = 0;
 
   for (const row of rows) {
-    const input = container.oldCustomerService.mapSheetRowToSnapshotInput(row, serviceIdMap);
+    const input = container.oldCustomerService.mapSheetRowToSnapshotInput(row, catalog);
     const built = container.oldCustomerService.buildRecurringSnapshotValues(input, employeeMap);
     if (!built) {
       skipped++;

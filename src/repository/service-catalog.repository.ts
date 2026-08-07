@@ -11,7 +11,7 @@ export class ServiceCatalogRepository implements IServiceCatalogRepository {
   // ServiceType name, the caller can deterministically pick the first one.
   findAll(): Promise<ServiceCatalogRow[]> {
     return this.billingDb.query<ServiceCatalogRow[]>(
-      "SELECT ServiceId, ServiceType FROM Services ORDER BY ServiceId ASC",
+      "SELECT ServiceId, ServiceType, BusinessOperation FROM Services ORDER BY ServiceId ASC",
     );
   }
 }
