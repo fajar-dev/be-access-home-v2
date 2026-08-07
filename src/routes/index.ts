@@ -18,6 +18,9 @@ router.get("/employee/:id/hierarchy", authMiddleware, (c) => container.employeeC
 router.get("/sales/:id/commission", authMiddleware, hierarchyMiddleware, (c) =>
   container.commissionController.salesCommission(c),
 );
+router.get("/sales/:id/commission/year", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.salesCommissionYear(c),
+);
 router.get("/sales/:id/invoice", authMiddleware, hierarchyMiddleware, (c) =>
   container.commissionController.salesInvoice(c),
 );

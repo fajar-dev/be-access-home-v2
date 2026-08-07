@@ -85,6 +85,30 @@ export class CommissionService {
   ) {}
 
   /**
+   * Lightweight per-month totals for a whole year, reusing getSalesCommission
+   * for each period so the dashboard's yearly chart never drifts from the
+   * single-period numbers it's built from.
+   */
+  async getSalesCommissionYear(employeeId: string, year: number) {
+    const periods = Array.from({ length: 12 }, (_, i) => `${year}${String(i + 1).padStart(2, "0")}`);
+    const months = await Promise.all(
+      periods.map((period) => this.getSalesCommission(employeeId, period)),
+    );
+
+    const yearly = emptyStats();
+    for (const month of months) {
+      addTo(yearly, month.total);
+    }
+
+    return {
+      year,
+      employeeId,
+      yearly,
+      months: months.map(({ items, ...summary }) => summary),
+    };
+  }
+
+  /**
    * Full commission picture for one salesperson in one period: the net
    * activity count that drives target-dependent rates, per-type and
    * per-service-group breakdowns, and the churn deduction.

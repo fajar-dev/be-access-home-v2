@@ -42,6 +42,19 @@ export class CommissionController {
     return c.json(successResponse("Commission retrieved successfully", summary));
   }
 
+  /** Per-month totals for a whole year, for the dashboard's yearly chart. */
+  async salesCommissionYear(c: Context) {
+    const employeeId = c.req.param("id")!;
+    const yearParam = c.req.query("year");
+    const year = Number.parseInt(yearParam ?? "", 10);
+    if (!yearParam || Number.isNaN(year)) {
+      throw new BadRequestException("Parameter year wajib diisi");
+    }
+
+    const result = await this.commissionService.getSalesCommissionYear(employeeId, year);
+    return c.json(successResponse("Yearly commission retrieved successfully", result));
+  }
+
   /** The underlying billing invoice list, each row with its own commission. */
   async salesInvoice(c: Context) {
     const employeeId = c.req.param("id")!;
