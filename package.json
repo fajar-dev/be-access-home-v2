@@ -9,7 +9,8 @@
     "invoice:new-customer:db": "bun run src/job/new-customer-db.ts",
     "invoice:old-customer": "bun run src/job/old-customer-sheet.ts",
     "invoice:old-customer:db": "bun run src/job/old-customer-db.ts",
-    "employee:crawl": "bun run src/job/employee-crawl.ts"
+    "employee:crawl": "bun run src/job/employee-crawl.ts",
+    "churn:crawl": "bun run src/job/churn-crawl.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",

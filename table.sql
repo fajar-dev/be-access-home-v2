@@ -52,3 +52,22 @@ CREATE TABLE status_period (
     end_date DATE NOT NULL,
     status ENUM('Probation', 'Permanent') NOT NULL DEFAULT 'Probation'
 );
+
+CREATE TABLE churn (
+    customer_service_id BIGINT PRIMARY KEY NOT NULL,
+    customer_id VARCHAR(20) NOT NULL,
+    customer_name VARCHAR(255) NULL,
+    customer_service_account VARCHAR(255) NULL,
+    service_id VARCHAR(50) NULL,
+    service_name VARCHAR(255) NULL,
+    registration_date DATE NULL,
+    unregistration_date DATE NULL,
+    reason TEXT NULL,
+    period INT NOT NULL DEFAULT 1,
+    price DECIMAL(18,2) NULL,
+    sales_id VARCHAR(20) NULL,
+    manager_id VARCHAR(20) NULL,
+    is_approved BOOLEAN NOT NULL DEFAULT FALSE,
+    INDEX idx_churn_unregistration_date (unregistration_date),
+    INDEX idx_churn_sales_id (sales_id)
+);

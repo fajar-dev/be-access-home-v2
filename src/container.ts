@@ -9,6 +9,7 @@ import { ServiceCatalogRepository } from "./repository/service-catalog.repositor
 import { NewCustomerRepository } from "./repository/new-customer.repository";
 import { OldCustomerRepository } from "./repository/old-customer.repository";
 import { FeedbackRepository } from "./repository/feedback.repository";
+import { ChurnRepository } from "./repository/churn.repository";
 
 import { EmployeeService } from "./service/employee.service";
 import { SnapshotService } from "./service/snapshot.service";
@@ -18,6 +19,7 @@ import { OldCustomerService } from "./service/old-customer.service";
 import { NusaworkService } from "./service/nusawork.service";
 import { AuthService } from "./service/auth.service";
 import { FeedbackService } from "./service/feedback.service";
+import { ChurnService } from "./service/churn.service";
 
 import { HealthController } from "./controller/health.controller";
 import { EmployeeController } from "./controller/employee.controller";
@@ -50,6 +52,7 @@ class Container {
   );
   readonly nusaworkClient = new NusaworkClient();
   readonly feedbackRepository = new FeedbackRepository();
+  readonly churnRepository = new ChurnRepository(this.billingDatabase, this.appDatabase);
 
   // Services
   readonly employeeService = new EmployeeService(this.employeeRepository);
@@ -70,6 +73,7 @@ class Container {
   readonly nusaworkService = new NusaworkService(this.nusaworkClient);
   readonly authService = new AuthService();
   readonly feedbackService = new FeedbackService(this.feedbackRepository);
+  readonly churnService = new ChurnService(this.churnRepository);
 
   // Controllers
   readonly healthController = new HealthController();
