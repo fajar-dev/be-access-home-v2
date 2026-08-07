@@ -136,6 +136,15 @@ export class CommissionService {
   async getSalesCommission(
     employeeId: string,
     period: string,
+    /**
+     * Overrides the activity count fed into the recurring-rate and
+     * performance-penalty checks (both gated on `< 12`), without touching
+     * the real activityCount used for achievement/motivation/bonus display.
+     * Used for a Manager's personal sales (KOMISI.md 6.F), where "target
+     * achieved" comes from the manager's own team performance rather than
+     * their personal New Achievement.
+     */
+    rateActivityCountOverride?: number,
   ): Promise<SalesCommissionResult> {
     const { start, end } = getDateRangeForPeriod(period);
     const startDate = toSqlDate(start);
@@ -151,6 +160,7 @@ export class CommissionService {
 
     const { activityCount, grossNusaSelectaActivity, customerHasSetup } =
       this.computeActivity(rows, churnRows);
+    const rateActivityCount = rateActivityCountOverride ?? activityCount;
 
     const total = emptyStats();
     const breakdown = emptyBreakdown();
@@ -185,7 +195,7 @@ export class CommissionService {
           serviceId: row.service_id,
           months,
           status,
-          activityCount,
+          activityCount: rateActivityCount,
           hasSetup: customerHasSetup.has(row.customer_id),
           businessOperation: row.business_operation,
         },
