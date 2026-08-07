@@ -72,4 +72,13 @@ export class CommissionController {
       }),
     );
   }
+
+  /** Itemized churn rows behind this period's deduction total. */
+  async salesChurn(c: Context) {
+    const employeeId = c.req.param("id")!;
+    const period = resolvePeriodFromQuery(c);
+
+    const data = await this.commissionService.getSalesChurn(employeeId, period);
+    return c.json(successResponse("Churn retrieved successfully", data));
+  }
 }

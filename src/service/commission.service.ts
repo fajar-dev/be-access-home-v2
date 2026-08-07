@@ -85,6 +85,26 @@ export class CommissionService {
   ) {}
 
   /**
+   * Itemized churn rows for one salesperson in a period, each valued the
+   * same way as the deduction it feeds into — what fed the deduction total.
+   */
+  async getSalesChurn(employeeId: string, period: string) {
+    const { start, end } = getDateRangeForPeriod(period);
+    const startDate = toSqlDate(start);
+    const endDate = toSqlDate(end);
+
+    const [rows, status] = await Promise.all([
+      this.churnService.getByEmployeeId(employeeId, startDate, endDate),
+      this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
+    ]);
+
+    return rows.map((churn) => {
+      const { mrc, commission, commissionPercentage } = this.valueChurn(churn, status);
+      return { ...churn, mrc, commission, commissionPercentage };
+    });
+  }
+
+  /**
    * Lightweight per-month totals for a whole year, reusing getSalesCommission
    * for each period so the dashboard's yearly chart never drifts from the
    * single-period numbers it's built from.

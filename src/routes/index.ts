@@ -24,6 +24,9 @@ router.get("/sales/:id/commission/year", authMiddleware, hierarchyMiddleware, (c
 router.get("/sales/:id/invoice", authMiddleware, hierarchyMiddleware, (c) =>
   container.commissionController.salesInvoice(c),
 );
+router.get("/sales/:id/churn", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.salesChurn(c),
+);
 
 router.get("/feedback", authMiddleware, (c) => container.feedbackController.index(c));
 router.post("/feedback", authMiddleware, (c) => container.feedbackController.store(c));
