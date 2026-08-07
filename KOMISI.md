@@ -21,16 +21,25 @@ Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
 
 ### 2. Aturan Komisi Sales
 
-**A. Kategori Layanan "Home"**
+> Bagian ini berlaku untuk **Sales**. Komisi Manager Area dihitung dengan skema terpisah — lihat Bagian 6.
+
+**A. Recurring — berlaku untuk SEMUA kategori**
+
+Rate recurring **tidak dibedakan per kategori layanan**: berlaku sama untuk Home, FO, FO Prepaid, Wireless, Starlink, CPE Rental, Cicilan, dan lainnya.
+
+- **1.5%**: Sales berstatus **Probation**, ATAU Sales **Permanent** yang **capai target** (New Achievement >= 12).
+- **0.5%**: Sales berstatus **Permanent** yang **gagal target** (< 12).
+- Bebas dari penalti performa 70%.
+
+**Dua pengecualian:**
+
+1. **Digital Business** — memakai rate sendiri **1% / 0.5%** berdasarkan Internal/Resell, dan **tidak** bergantung target (lihat Bagian 2.D).
+2. **NusaSelecta** (`NFSP030`, `NFSP100`, `NFSP200`) — invoice recurring-nya **TIDAK dihitung sama sekali**, difilter langsung di query (`getSnapshotBySales`). Paket ini hanya menerima komisi New/Upgrade/Prorate.
+
+**B. Kategori Layanan "Home" — New, Upgrade & Prorate**
 
 - **Prorate (Prorata)**: Komisi flat **10%** dari Base Commission.
 - **Upgrade**: Komisi berdasarkan rate `Service ID` dan durasi kontrak. Bebas dari penalti performa 70%.
-- **Recurring (Langganan Berulang)**:
-  - Bebas dari penalti performa 70%.
-  - Persentase Komisi:
-    - **0.5%**: Jika Sales berstatus **Permanent** dan gagal target (< 12 activity).
-    - **1.5%**: Jika Sales berstatus **Probation** ATAU Sales Permanent yang **capai target** (>= 12 activity).
-  - **⚠️ Pengecualian NusaSelecta**: Invoice **recurring** untuk paket NusaSelecta (`NFSP030`, `NFSP100`, `NFSP200`) **TIDAK dihitung sama sekali** — difilter langsung di query (`getSnapshotBySales`). Jadi paket NusaSelecta **tidak menerima komisi recurring**, hanya komisi New/Upgrade/Prorate.
 - **New (Pemasangan Baru)**: Persentase komisi ditentukan dari `Service ID` dan lama masa kontrak (`months`). Dikenakan penalti performa 70% jika Sales Permanent gagal target.
 
 **Tabel Rate Komisi (New & Upgrade):**
@@ -52,19 +61,19 @@ Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
 >
 > **⚠️ Service tanpa entri rate → komisi 0%**: Query crawl menarik service `CBSHM, HOME30, HOME50, HOME300, BOOSTER100, BOOSTER200, BOOSTER300`, **tetapi service ini TIDAK punya rate** di `getCommissionRates()`. Untuk tipe `new`/`upgrade`, `commissionPercentage` mereka = **0** sehingga **tidak menghasilkan komisi** (kecuali lewat jalur prorate 10%, recurring, setup/alat). Hanya service yang tercantum di tabel rate di atas yang menghasilkan komisi New/Upgrade.
 
-**B. Kategori Layanan Lainnya ("Setup" & "Alat")**
+**C. Kategori Layanan Lainnya ("Setup" & "Alat")**
 
 - **Setup**: Komisi flat **5%**.
 - **Alat**:
   - Jika pembelian alat dibundel bersamaan dengan Setup pemasangan pelanggan: komisi **2%**.
   - Jika pembelian alat tersendiri (standalone): komisi **1%**.
 
-**C. Kategori Layanan "Digital Business"**
+**D. Kategori Layanan "Digital Business"**
 
 - **Recurring (Langganan Berulang)**: Persentase komisi ditentukan oleh **jenis operasional layanan** (`business_operation`), bukan oleh pencapaian target:
   - **1%**: layanan **Internal** (dioperasikan sendiri oleh Nusanet).
   - **0.5%**: layanan **Resell** (hasil resell dari pihak ketiga).
-- **⚠️ Tidak bergantung target**: rate di atas berlaku **tetap**, terlepas dari New Achievement sales sudah capai target (>= 12) atau belum, dan terlepas dari status kepegawaian (Permanent/Probation). Ini **berbeda** dari recurring kategori Home yang rate-nya 0.5% / 1.5% tergantung target.
+- **⚠️ Tidak bergantung target**: rate di atas berlaku **tetap**, terlepas dari New Achievement sales sudah capai target (>= 12) atau belum, dan terlepas dari status kepegawaian (Permanent/Probation). Ini **berbeda** dari recurring kategori lain (Bagian 2.A) yang rate-nya 1.5% / 0.5% tergantung target.
 - **Sumber data**: kolom `business_operation` pada tabel `snapshots`, diisi saat crawl dari `Services.BusinessOperation` di database billing, dan **hanya** untuk baris berkategori `Digital Business`. Untuk job berbasis sheet, nilainya di-lookup dari katalog `Services` berdasarkan `Nama Service` (sheet tidak punya kolom ini).
 - **⚠️ Baris tanpa klasifikasi tidak diambil**: jika `Services.BusinessOperation` bukan `internal`/`resell` (mis. `undefined`, `access`, `setup`, `other`), baris Digital Business tersebut **tidak dimasukkan ke `snapshots`** sama sekali — karena tidak ada rate yang bisa dipakai. Kalau ada layanan yang seharusnya dapat komisi tapi hilang, perbaiki `BusinessOperation`-nya di billing lalu jalankan ulang crawl.
 
@@ -148,11 +157,11 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 
 **A. Target & Capaian Tim**
 
-- **Jumlah AM** = total seluruh anggota tim di bawah binaan manager, **termasuk yang Probation**. Angka ini hanya dipakai untuk menentukan Threshold di Bagian B.
+- **Jumlah AM** = total seluruh anggota tim di bawah binaan manager, **termasuk yang Probation**. Angka ini hanya dipakai untuk menentukan Threshold di Bagian 6.B.
 - **Target Dasar Tim** = `Jumlah Pegawai Permanent x 12` (minimal aktivitas per sales Permanent adalah 12). Pegawai **Probation tidak menambah** target dasar.
 - **Target Akhir Manager** = `Target Dasar Tim x Threshold%`, **dibulatkan** ke bilangan bulat terdekat.
-- **Status Capai Target** = `Total New Achievement seluruh anggota tim >= Target Akhir Manager`. Status inilah yang dipakai untuk rate recurring (Bagian D) dan komisi penjualan pribadi manager (Bagian F).
-- **Persentase Capaian** = `(Total New Achievement Tim / Target Dasar Tim) x 100%`. Angka ini dipakai untuk tier komisi New di Bagian C — perhatikan pembaginya adalah **Target Dasar**, bukan Target Akhir.
+- **Status Capai Target** = `Total New Achievement seluruh anggota tim >= Target Akhir Manager`. Status inilah yang dipakai untuk rate recurring (Bagian 6.D) dan komisi penjualan pribadi manager (Bagian 6.F).
+- **Persentase Capaian** = `(Total New Achievement Tim / Target Dasar Tim) x 100%`. Angka ini dipakai untuk tier komisi New di Bagian 6.C — perhatikan pembaginya adalah **Target Dasar**, bukan Target Akhir.
 - Jika tidak ada pegawai Permanent satupun dalam tim: Target dianggap 100% (kalau ada tim probation) atau 0% (kalau tim kosong).
 
 **B. Ambang Batas Target (Target Threshold)**
