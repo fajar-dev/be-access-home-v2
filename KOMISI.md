@@ -59,6 +59,15 @@ Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
   - Jika pembelian alat dibundel bersamaan dengan Setup pemasangan pelanggan: komisi **2%**.
   - Jika pembelian alat tersendiri (standalone): komisi **1%**.
 
+**C. Kategori Layanan "Digital Business"**
+
+- **Recurring (Langganan Berulang)**: Persentase komisi ditentukan oleh **jenis operasional layanan** (`business_operation`), bukan oleh pencapaian target:
+  - **1%**: layanan **Internal** (dioperasikan sendiri oleh Nusanet).
+  - **0.5%**: layanan **Resell** (hasil resell dari pihak ketiga).
+- **⚠️ Tidak bergantung target**: rate di atas berlaku **tetap**, terlepas dari New Achievement sales sudah capai target (>= 12) atau belum, dan terlepas dari status kepegawaian (Permanent/Probation). Ini **berbeda** dari recurring kategori Home yang rate-nya 0.5% / 1.5% tergantung target.
+- **Sumber data**: kolom `business_operation` pada tabel `snapshots`, diisi saat crawl dari `Services.BusinessOperation` di database billing, dan **hanya** untuk baris berkategori `Digital Business`. Untuk job berbasis sheet, nilainya di-lookup dari katalog `Services` berdasarkan `Nama Service` (sheet tidak punya kolom ini).
+- **⚠️ Baris tanpa klasifikasi tidak diambil**: jika `Services.BusinessOperation` bukan `internal`/`resell` (mis. `undefined`, `access`, `setup`, `other`), baris Digital Business tersebut **tidak dimasukkan ke `snapshots`** sama sekali — karena tidak ada rate yang bisa dipakai. Kalau ada layanan yang seharusnya dapat komisi tapi hilang, perbaiki `BusinessOperation`-nya di billing lalu jalankan ulang crawl.
+
 _Total Pembayaran Komisi Sales (per item) = `Base Commission` x `Persentase Komisi` / 100._
 
 ---
@@ -137,21 +146,39 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 
 ### 6. Komisi & Performa Manager Area
 
-**A. Persentase Performa Bulanan Manager (Achievement Percentage)**
+**A. Target & Capaian Tim**
 
-- **Target Total Tim** = `Jumlah Pegawai Permanent Tim x 12 (karena minimal aktivitas adalah 12)`.
-- **Persentase Capaian** = `(Total Activity Semua Anggota Tim / Target Total Tim) x 100%`.
+- **Jumlah AM** = total seluruh anggota tim di bawah binaan manager, **termasuk yang Probation**. Angka ini hanya dipakai untuk menentukan Threshold di Bagian B.
+- **Target Dasar Tim** = `Jumlah Pegawai Permanent x 12` (minimal aktivitas per sales Permanent adalah 12). Pegawai **Probation tidak menambah** target dasar.
+- **Target Akhir Manager** = `Target Dasar Tim x Threshold%`, **dibulatkan** ke bilangan bulat terdekat.
+- **Status Capai Target** = `Total New Achievement seluruh anggota tim >= Target Akhir Manager`. Status inilah yang dipakai untuk rate recurring (Bagian D) dan komisi penjualan pribadi manager (Bagian F).
+- **Persentase Capaian** = `(Total New Achievement Tim / Target Dasar Tim) x 100%`. Angka ini dipakai untuk tier komisi New di Bagian C — perhatikan pembaginya adalah **Target Dasar**, bukan Target Akhir.
 - Jika tidak ada pegawai Permanent satupun dalam tim: Target dianggap 100% (kalau ada tim probation) atau 0% (kalau tim kosong).
 
-**B. Ambang Batas Target Tim (Target Threshold)**
-Status "Capai Target" Manager bersifat dinamis mengikuti total anggota tim di bawah binaannya:
+**B. Ambang Batas Target (Target Threshold)**
 
-- Bawahan 1 orang = Target **120%** minimum
-- Bawahan 2 orang = Target **115%** minimum
-- ...
-- Bawahan 5 orang = Target **100%** minimum
-- ...
-- Bawahan >= 10 orang = Target hanya **85%** minimum
+Semakin besar tim, semakin ringan persentase targetnya. Threshold dipilih berdasarkan **Jumlah AM** (termasuk probation):
+
+| Jumlah AM | Target  |
+| --------- | ------- |
+| 1         | 120%    |
+| 2         | 115%    |
+| 3         | 110%    |
+| 4         | 105%    |
+| 5         | 100%    |
+| 6         | 95%     |
+| 7         | 92%     |
+| 8         | 90%     |
+| 9         | 88%     |
+| >= 10     | 85%     |
+
+> **Contoh perhitungan:** Tim berisi **9 Permanent + 1 Probation**.
+>
+> 1. Jumlah AM = **10** → Threshold = **85%** (dari tabel).
+> 2. Target Dasar = `9 x 12` = **108** (probation tidak ikut dihitung).
+> 3. Target Akhir = `108 x 85%` = `91.8` → dibulatkan menjadi **92**.
+>
+> Manager harus mengumpulkan **92 New Achievement** dari total timnya untuk dinyatakan **Capai Target**.
 
 **C. Komisi New (Akuisisi Pelanggan Baru dari Tim)**
 Manager mengambil komisi overriding yang diproses dari total "New Commission" uang pegawainya sebulan, dipotong berdasarkan capaian target:
@@ -168,13 +195,31 @@ Dihitung flat bulanan sebagai overriding insentif pendapatan pasif:
 - Apabila Manager berstatus **Capai Target**, Rate Recurring Manager adalah **0.90%** dari total uang _Recurring Subscription_ timnya.
 - Apabila Manager berstatus **Tidak Capai Target**, Rate Recurring diturunkan menjadi **0.50%** dari total pengumpulan langganan anggota timnya.
 
-_Total Komisi Manager akhir bulan = `Total Overriding Komisi New` + `Komisi Overriding Recurring`._
-_Semua perhitungan Manager menggunakan angka **NET** (setelah dikurangi churn dan penalti masing-masing anggota tim)._
+**⚠️ Invoice tanpa sales (`Customer Relation Officer`)**
+
+Invoice yang kolom `sales`-nya berisi `Customer Relation Officer` **tetap dihitung** ke komisi recurring manager, selama kolom `manager` invoice tersebut menunjuk ke manager yang bersangkutan.
+
+- `Customer Relation Officer` adalah **placeholder**, bukan pegawai — dipakai saat nama sales di sumber data tidak cocok dengan pegawai manapun (lihat `resolveSales`). Invoice ini karenanya **tidak menghasilkan komisi sales pribadi**, tapi **tetap masuk** ke total _Recurring Subscription_ tim manager.
+- Pencocokannya lewat kolom `manager` pada invoice, **bukan** lewat hierarki tim (`getHierarchy`) — karena placeholder ini tidak akan pernah muncul sebagai anggota tim.
+- **⚠️ Prasyarat data**: pencocokan hanya berhasil bila kolom `manager` berisi **employee ID**. Bila berisi nama mentah (karena nama manager di sumber data tidak cocok dengan pegawai manapun), invoice tersebut **tidak akan terhitung** ke manager siapa pun. Pastikan `employee:crawl` sudah lengkap sebelum periode dihitung.
 
 **E. Cakupan Anggota Tim yang Dihitung**
 
 - **⚠️ Anggota tanpa `status_period` dilewati**: Dalam perhitungan manager, anggota tim yang **belum memiliki catatan status** (Permanent/Probation) untuk periode tersebut akan **dilewati sepenuhnya** (`if (!status) continue;`) — tidak masuk hitungan target tim, tidak masuk komisi tim, dan tidak muncul di rincian. Pastikan `employee.crawl` sudah dijalankan agar `status_period` tiap anggota terisi sebelum periode dihitung.
 - **Cakupan tim**: hierarki tim ditarik rekursif (`getHierarchy`) dan hanya mencakup pegawai dengan `has_dashboard = true`.
+
+**F. Komisi Penjualan Pribadi Manager**
+
+Manager Area juga bisa memiliki data penjualan atas namanya sendiri (invoice dengan `sales_id` = employee ID manager), sama seperti sales biasa. Komisi ini **berdiri sendiri** di luar komisi overriding tim.
+
+- **Rate & perhitungan**: memakai aturan yang sama persis dengan Sales (Bagian 2) — tabel rate New/Upgrade, prorate 10%, recurring, setup/alat, termasuk penalti keterlambatan pembayaran.
+- **⚠️ Penentu "capai target" berbeda**: status capai / tidak capai target untuk komisi pribadi manager **diambil dari capaian target Manager** (Bagian 6.A & 6.B — persentase capaian tim terhadap ambang batas dinamis sesuai jumlah bawahan), **bukan** dari aturan sales individual `New Achievement >= 12`. Status ini menentukan:
+  - **Rate recurring**: 1.5% bila capai target, 0.5% bila tidak (untuk pegawai Permanent).
+  - **Penalti performa 70%** pada tipe New.
+- **Tidak ada sirkularitas**: penjualan pribadi manager **tidak** ikut dihitung sebagai aktivitas tim. Perhitungan tim memakai `getHierarchy(..., isSelf = false)` yang menarik mulai dari bawahan langsung, sehingga manager sendiri **tidak** termasuk anggota tim yang dijumlahkan pada Bagian 6.A.
+
+_Total Komisi Manager akhir bulan = `Komisi Penjualan Pribadi` (F) + `Overriding Komisi New` (C) + `Overriding Komisi Recurring` (D)._
+_Semua perhitungan Manager menggunakan angka **NET** (setelah dikurangi churn dan penalti masing-masing anggota tim)._
 
 ---
 
