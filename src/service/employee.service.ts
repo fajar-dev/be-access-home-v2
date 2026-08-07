@@ -4,6 +4,7 @@ import type {
   IEmployeeRepository,
   IEmployeeService,
   SalesResolution,
+  StatusPeriodRow,
 } from "../interface/employee.interface";
 
 const SALES_UNMATCHED_ALLOWED = new Set(["Customer Relation Officer"]);
@@ -71,6 +72,22 @@ export class EmployeeService implements IEmployeeService {
 
   getAllEmployeeIds(): Promise<string[]> {
     return this.employeeRepository.findAllEmployeeIds();
+  }
+
+  getStatusByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<string | null> {
+    return this.employeeRepository.findStatusByPeriod(employeeId, startDate, endDate);
+  }
+
+  getStatusesByPeriodAndIds(
+    employeeIds: string[],
+    startDate: string,
+    endDate: string,
+  ): Promise<StatusPeriodRow[]> {
+    return this.employeeRepository.findStatusesByPeriodAndIds(employeeIds, startDate, endDate);
   }
 
   deactivateEmployee(employeeId: string): Promise<void> {

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { container } from "../container";
 import { authMiddleware } from "../middleware/auth.middleware";
+import { hierarchyMiddleware } from "../middleware/hierarchy.middleware";
 
 const router = new Hono();
 
@@ -13,6 +14,13 @@ router.post("/auth/logout", (c) => container.authController.logout(c));
 
 router.get("/employee/:id", authMiddleware, (c) => container.employeeController.getByEmployeeId(c));
 router.get("/employee/:id/hierarchy", authMiddleware, (c) => container.employeeController.getHierarchy(c));
+
+router.get("/sales/:id/commission", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.salesCommission(c),
+);
+router.get("/sales/:id/invoice", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.salesInvoice(c),
+);
 
 router.get("/feedback", authMiddleware, (c) => container.feedbackController.index(c));
 router.post("/feedback", authMiddleware, (c) => container.feedbackController.store(c));

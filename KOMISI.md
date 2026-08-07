@@ -49,9 +49,15 @@ Rate recurring **tidak dibedakan per kategori layanan**: berlaku sama untuk Home
 - **NusaFiber (NFSP200)**: < 6 bln (26.00%), 6 bln (6.00%), 12 bln (4.67%)
 - **Home100, HomeSTD100**: 1 bln (28.57%), 6 bln (5.95%), 12 bln (4.76%)
 - **HomeADV200, HomeADV**: 1 bln (27.78%), 6 bln (5.56%), 12 bln (4.63%)
-- **HomePrem300**: 1 bln (31.25%), 6 bln (6.25%), 12 bln (5.21%)
-- **LITE100**: 1 bln (27%), 6 bln (5.56%), 12 bln (4.63%)
+- **HomePrem300, HOME300**: 1 bln (31.25%), 6 bln (6.25%), 12 bln (5.21%)
 - **LITE100**: 1 bln (28%), 6 bln (5.95%), 12 bln (4.76%)
+- **LITE200**: 1 bln (27%), 6 bln (5.56%), 12 bln (4.63%)
+
+> **⚠️ Beberapa produk punya dua ServiceId alias** dengan `ServiceType` identik di billing. **Keduanya wajib ada** di tabel rate, kalau tidak penjualan atas alias yang terlewat diam-diam dapat komisi 0%:
+>
+> - Standard 100 Mbps: `HOME100` / `HOMESTD100`
+> - Advanced 200 Mbps: `HOMEADV` / `HOMEADV200`
+> - Premium 300 Mbps: `HOMEPREM300` / `HOME300`
 
 > **⚠️ Batas tier durasi kontrak (`months`) berbeda antar service** — lihat `getCommissionRates()` di `commission.helper.ts`:
 >
@@ -59,7 +65,7 @@ Rate recurring **tidak dibedakan per kategori layanan**: berlaku sama untuk Home
 > - **Service lain (BFLITE, HOME\*, LITE\*)**: rate 6-bulan dipakai bila `months > 1`. Artinya kontrak **2–11 bulan** langsung memakai rate **6 bulan**; rate "1 bln" hanya berlaku untuk kontrak tepat 1 bulan.
 > - Rate 12-bulan dipakai bila `months >= 12` untuk semua service.
 >
-> **⚠️ Service tanpa entri rate → komisi 0%**: Query crawl menarik service `CBSHM, HOME30, HOME50, HOME300, BOOSTER100, BOOSTER200, BOOSTER300`, **tetapi service ini TIDAK punya rate** di `getCommissionRates()`. Untuk tipe `new`/`upgrade`, `commissionPercentage` mereka = **0** sehingga **tidak menghasilkan komisi** (kecuali lewat jalur prorate 10%, recurring, setup/alat). Hanya service yang tercantum di tabel rate di atas yang menghasilkan komisi New/Upgrade.
+> **⚠️ Service tanpa entri rate → tidak dihitung sama sekali untuk New/Upgrade**: Query crawl juga menarik service `CBSHM, HOME30, HOME50, BOOSTER100, BOOSTER200, BOOSTER300` yang **belum punya rate**. Baris `new`/`upgrade` dari service ini **dibuang sepenuhnya** sebelum dihitung — tidak menghasilkan komisi **dan tidak menambah New Achievement**, supaya tidak dapat "kredit target gratis" dari produk yang komisinya 0%. Prorate (10%), recurring, dan setup/alat tetap jalan seperti biasa untuk service ini — pembatasan hanya berlaku untuk New/Upgrade. Hanya service yang tercantum di tabel rate di atas yang dihitung untuk New/Upgrade — jadi kalau ada penjualan service di daftar ini, rate-nya perlu ditambahkan dulu.
 
 **C. Kategori Layanan Lainnya ("Setup" & "Alat")**
 
@@ -168,18 +174,18 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 
 Semakin besar tim, semakin ringan persentase targetnya. Threshold dipilih berdasarkan **Jumlah AM** (termasuk probation):
 
-| Jumlah AM | Target  |
-| --------- | ------- |
-| 1         | 120%    |
-| 2         | 115%    |
-| 3         | 110%    |
-| 4         | 105%    |
-| 5         | 100%    |
-| 6         | 95%     |
-| 7         | 92%     |
-| 8         | 90%     |
-| 9         | 88%     |
-| >= 10     | 85%     |
+| Jumlah AM | Target |
+| --------- | ------ |
+| 1         | 120%   |
+| 2         | 115%   |
+| 3         | 110%   |
+| 4         | 105%   |
+| 5         | 100%   |
+| 6         | 95%    |
+| 7         | 92%    |
+| 8         | 90%    |
+| 9         | 88%    |
+| >= 10     | 85%    |
 
 > **Contoh perhitungan:** Tim berisi **9 Permanent + 1 Probation**.
 >

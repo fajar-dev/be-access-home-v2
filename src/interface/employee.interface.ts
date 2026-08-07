@@ -25,6 +25,13 @@ export type EmployeeDetail = {
   managerPhotoProfile?: string | null;
 };
 
+export type StatusPeriodRow = {
+  employee_id: string;
+  status: string;
+  start_date: Date | string;
+  end_date: Date | string;
+};
+
 export type EmployeeUpsertInput = {
   userId: string;
   employeeId: string;
@@ -53,6 +60,16 @@ export interface IEmployeeRepository {
     endDate: string,
     status: string,
   ): Promise<void>;
+  findStatusByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<string | null>;
+  findStatusesByPeriodAndIds(
+    employeeIds: string[],
+    startDate: string,
+    endDate: string,
+  ): Promise<StatusPeriodRow[]>;
   /**
    * Recursive-CTE lookup: the employee's own reporting chain (isSelf=true)
    * or their direct team (isSelf=false), filtered to has_dashboard rows.
@@ -95,6 +112,17 @@ export interface IEmployeeService {
   ): Promise<void>;
   getAllEmployeeIds(): Promise<string[]>;
   deactivateEmployee(employeeId: string): Promise<void>;
+  /** Employment status recorded for that exact commission period, or null if never crawled. */
+  getStatusByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<string | null>;
+  getStatusesByPeriodAndIds(
+    employeeIds: string[],
+    startDate: string,
+    endDate: string,
+  ): Promise<StatusPeriodRow[]>;
   findByEmployeeId(employeeId: string): Promise<EmployeeDetail | null>;
   findByEmail(email: string): Promise<EmployeeDetail | null>;
   getHierarchy(

@@ -4,6 +4,7 @@ import type {
   EmployeeRow,
   EmployeeUpsertInput,
   IEmployeeRepository,
+  StatusPeriodRow,
 } from "../interface/employee.interface";
 
 export class EmployeeRepository implements IEmployeeRepository {
@@ -111,6 +112,32 @@ export class EmployeeRepository implements IEmployeeRepository {
     await this.db.query(
       `INSERT INTO status_period (employee_id, start_date, end_date, status) VALUES (?, ?, ?, ?)`,
       [employeeId, startDate, endDate, status],
+    );
+  }
+
+  async findStatusByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<string | null> {
+    const rows = await this.db.query<{ status: string }[]>(
+      `SELECT status FROM status_period
+       WHERE employee_id = ? AND start_date = ? AND end_date = ? LIMIT 1`,
+      [employeeId, startDate, endDate],
+    );
+    return rows[0]?.status ?? null;
+  }
+
+  findStatusesByPeriodAndIds(
+    employeeIds: string[],
+    startDate: string,
+    endDate: string,
+  ): Promise<StatusPeriodRow[]> {
+    if (employeeIds.length === 0) return Promise.resolve([]);
+    return this.db.query<StatusPeriodRow[]>(
+      `SELECT employee_id, status, start_date, end_date FROM status_period
+       WHERE employee_id IN (?) AND start_date = ? AND end_date = ?`,
+      [employeeIds, startDate, endDate],
     );
   }
 

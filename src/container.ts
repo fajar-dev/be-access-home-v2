@@ -20,11 +20,13 @@ import { NusaworkService } from "./service/nusawork.service";
 import { AuthService } from "./service/auth.service";
 import { FeedbackService } from "./service/feedback.service";
 import { ChurnService } from "./service/churn.service";
+import { CommissionService } from "./service/commission.service";
 
 import { HealthController } from "./controller/health.controller";
 import { EmployeeController } from "./controller/employee.controller";
 import { AuthController } from "./controller/auth.controller";
 import { FeedbackController } from "./controller/feedback.controller";
+import { CommissionController } from "./controller/commission.controller";
 
 /**
  * Composition root: the one place the full dependency graph gets wired
@@ -74,12 +76,18 @@ class Container {
   readonly authService = new AuthService();
   readonly feedbackService = new FeedbackService(this.feedbackRepository);
   readonly churnService = new ChurnService(this.churnRepository);
+  readonly commissionService = new CommissionService(
+    this.snapshotRepository,
+    this.churnService,
+    this.employeeService,
+  );
 
   // Controllers
   readonly healthController = new HealthController();
   readonly employeeController = new EmployeeController(this.employeeService);
   readonly authController = new AuthController(this.authService, this.employeeService);
   readonly feedbackController = new FeedbackController(this.feedbackService, this.employeeService);
+  readonly commissionController = new CommissionController(this.commissionService);
 
   /** Closes every open DB connection pool — call before a job/process exits. */
   async closeConnections(): Promise<void> {
