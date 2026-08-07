@@ -62,7 +62,7 @@ WHERE cit.RInvoiceNum = 0
     AND cit.InvoiceType != 8
     AND IFNULL(bce.type, 'customer') != 'internal'
     AND cs.CustStatus != 'FR'
-    AND IFNULL(s.ServiceGroup, '') != 'DO'
+    AND IFNULL(s.ServiceGroup, '') NOT IN ('DO', 'IP')
 GROUP BY nci.AI
 HAVING DPP > 0
 ORDER BY nci.AI;
