@@ -28,6 +28,15 @@ function resolvePeriodFromQuery(c: Context): string {
   return `${yearInt}${String(monthInt).padStart(2, "0")}`;
 }
 
+function resolveYearFromQuery(c: Context): number {
+  const yearParam = c.req.query("year");
+  const year = Number.parseInt(yearParam ?? "", 10);
+  if (!yearParam || Number.isNaN(year)) {
+    throw new BadRequestException("Parameter year wajib diisi");
+  }
+  return year;
+}
+
 export class CommissionController {
   constructor(private readonly commissionService: CommissionService) {}
 
@@ -45,11 +54,7 @@ export class CommissionController {
   /** Per-month totals for a whole year, for the dashboard's yearly chart. */
   async salesCommissionYear(c: Context) {
     const employeeId = c.req.param("id")!;
-    const yearParam = c.req.query("year");
-    const year = Number.parseInt(yearParam ?? "", 10);
-    if (!yearParam || Number.isNaN(year)) {
-      throw new BadRequestException("Parameter year wajib diisi");
-    }
+    const year = resolveYearFromQuery(c);
 
     const result = await this.commissionService.getSalesCommissionYear(employeeId, year);
     return c.json(successResponse("Yearly commission retrieved successfully", result));
@@ -80,5 +85,23 @@ export class CommissionController {
 
     const data = await this.commissionService.getSalesChurn(employeeId, period);
     return c.json(successResponse("Churn retrieved successfully", data));
+  }
+
+  /** Manager Area commission: team target/achievement, overriding New/Recurring, and personal sales. */
+  async managerCommission(c: Context) {
+    const managerId = c.req.param("id")!;
+    const period = resolvePeriodFromQuery(c);
+
+    const result = await this.commissionService.getManagerCommission(managerId, period);
+    return c.json(successResponse("Manager commission retrieved successfully", result));
+  }
+
+  /** Per-month manager commission for a whole year, for the dashboard's yearly charts. */
+  async managerCommissionYear(c: Context) {
+    const managerId = c.req.param("id")!;
+    const year = resolveYearFromQuery(c);
+
+    const result = await this.commissionService.getManagerCommissionYear(managerId, year);
+    return c.json(successResponse("Yearly manager commission retrieved successfully", result));
   }
 }

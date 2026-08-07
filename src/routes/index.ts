@@ -28,6 +28,13 @@ router.get("/sales/:id/churn", authMiddleware, hierarchyMiddleware, (c) =>
   container.commissionController.salesChurn(c),
 );
 
+router.get("/manager/:id/commission", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.managerCommission(c),
+);
+router.get("/manager/:id/commission/year", authMiddleware, hierarchyMiddleware, (c) =>
+  container.commissionController.managerCommissionYear(c),
+);
+
 router.get("/feedback", authMiddleware, (c) => container.feedbackController.index(c));
 router.post("/feedback", authMiddleware, (c) => container.feedbackController.store(c));
 
