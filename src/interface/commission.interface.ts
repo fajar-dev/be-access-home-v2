@@ -84,7 +84,8 @@ export type SalesCommissionResult = {
   bonus: number;
   total: CommissionStats;
   breakdown: CommissionBreakdown;
-  byServiceGroup: Record<string, CommissionStats>;
+  /** Same per-type breakdown as `breakdown`, scoped to each service group (Home/Nusafiber/NusaSelecta). */
+  byServiceGroup: Record<string, CommissionBreakdown>;
   deduction: {
     count: number;
     commission: number;

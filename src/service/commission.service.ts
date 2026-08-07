@@ -110,10 +110,10 @@ export class CommissionService {
 
     const total = emptyStats();
     const breakdown = emptyBreakdown();
-    const byServiceGroup: Record<string, CommissionStats> = {
-      Home: emptyStats(),
-      Nusafiber: emptyStats(),
-      NusaSelecta: emptyStats(),
+    const byServiceGroup: Record<string, CommissionBreakdown> = {
+      Home: emptyBreakdown(),
+      Nusafiber: emptyBreakdown(),
+      NusaSelecta: emptyBreakdown(),
     };
     const items: CommissionLineItem[] = [];
 
@@ -162,7 +162,7 @@ export class CommissionService {
       addTo(breakdown[bucket], delta);
 
       const group = getServiceGroupLabel(row.service_id);
-      addTo(byServiceGroup[group]!, delta);
+      addTo(byServiceGroup[group]![bucket], delta);
 
       items.push({
         aiInvoice: row.ai_invoice,
@@ -194,7 +194,7 @@ export class CommissionService {
     // Grouped NusaSelecta achievements re-enter the displayed counts.
     total.count += grossNusaSelectaActivity;
     breakdown.new.count += grossNusaSelectaActivity;
-    byServiceGroup.NusaSelecta!.count += grossNusaSelectaActivity;
+    byServiceGroup.NusaSelecta!.new.count += grossNusaSelectaActivity;
 
     const deduction = this.applyChurnDeduction(
       churnRows,
@@ -268,9 +268,32 @@ export class CommissionService {
   }
 
   /**
+   * What one unapproved churn is worth: valued at the New rate assuming
+   * target was met, so the deduction itself isn't discounted by the
+   * performance penalty.
+   */
+  private valueChurn(churn: ChurnRow, status: string | null) {
+    const price = toNumber(churn.price);
+    const months = Math.max(toNumber(churn.period) || 1, 1);
+    const mrc = price / months;
+
+    const { commission, commissionPercentage } = calculateCommission(price, 0, false, {
+      category: "home",
+      type: "new",
+      serviceId: churn.service_id,
+      months,
+      status,
+      activityCount: 12,
+      hasSetup: false,
+      businessOperation: null,
+    });
+
+    return { price, months, mrc, commission, commissionPercentage };
+  }
+
+  /**
    * Each unapproved churn reverses a "new" sale: it removes the count,
    * the subscription, the MRC, and the commission it would have earned.
-   * Churn commission is valued at the New rate assuming target was met.
    */
   private applyChurnDeduction(
     churnRows: ChurnRow[],
@@ -278,29 +301,14 @@ export class CommissionService {
     activityCount: number,
     total: CommissionStats,
     breakdown: CommissionBreakdown,
-    byServiceGroup: Record<string, CommissionStats>,
+    byServiceGroup: Record<string, CommissionBreakdown>,
   ) {
     const deduction = { count: 0, commission: 0, subscription: 0, mrc: 0 };
 
     for (const churn of churnRows) {
       if (churn.is_approved) continue;
 
-      const price = toNumber(churn.price);
-      const months = Math.max(toNumber(churn.period) || 1, 1);
-      const mrc = price / months;
-
-      const { commission } = calculateCommission(price, 0, false, {
-        category: "home",
-        type: "new",
-        serviceId: churn.service_id,
-        months,
-        status,
-        // Valued as if target was met, so the churn deduction itself
-        // doesn't get discounted by the performance penalty.
-        activityCount: 12,
-        hasSetup: false,
-        businessOperation: null,
-      });
+      const { price, mrc, commission } = this.valueChurn(churn, status);
 
       deduction.count += 1;
       deduction.commission += commission;
@@ -312,7 +320,7 @@ export class CommissionService {
       addTo(breakdown.new, negative);
 
       const group = getServiceGroupLabel(churn.service_id);
-      addTo(byServiceGroup[group]!, negative);
+      addTo(byServiceGroup[group]!.new, negative);
     }
 
     return deduction;
