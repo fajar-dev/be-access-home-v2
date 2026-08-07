@@ -2,6 +2,7 @@ import axios from "axios";
 import { OAuth2Client } from "google-auth-library";
 import { sign, verify } from "hono/jwt";
 import { authConfig } from "../config/auth.config";
+import { UnauthorizedException } from "../exception/http.exception";
 import type {
   AccessTokenPayload,
   AuthTokens,
@@ -32,11 +33,21 @@ export class AuthService implements IAuthService {
   }
 
   async verifyPassword(employeeId: string, password: string): Promise<boolean> {
-    const response = await axios.post(authConfig.authApiUrl!, {
-      username: employeeId,
-      password,
-    });
-    return response.status === 201;
+    try {
+      const response = await axios.post(authConfig.authApiUrl!, {
+        username: employeeId,
+        password,
+      });
+      return response.status === 201;
+    } catch (error) {
+      // The auth API rejecting the credentials (4xx/5xx) means "not valid",
+      // not a server-side failure — anything else (network down, etc.)
+      // still propagates to the global error handler.
+      if (axios.isAxiosError(error) && error.response) {
+        return false;
+      }
+      throw error;
+    }
   }
 
   async generateTokens(employee: EmployeeDetail): Promise<AuthTokens> {
@@ -62,10 +73,18 @@ export class AuthService implements IAuthService {
   }
 
   async verifyAccessToken(token: string): Promise<AccessTokenPayload> {
-    return (await verify(token, authConfig.jwtSecret!, "HS256")) as unknown as AccessTokenPayload;
+    try {
+      return (await verify(token, authConfig.jwtSecret!, "HS256")) as unknown as AccessTokenPayload;
+    } catch {
+      throw new UnauthorizedException("Invalid or expired token");
+    }
   }
 
   async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
-    return (await verify(token, authConfig.jwtSecret!, "HS256")) as unknown as RefreshTokenPayload;
+    try {
+      return (await verify(token, authConfig.jwtSecret!, "HS256")) as unknown as RefreshTokenPayload;
+    } catch {
+      throw new UnauthorizedException("Invalid refresh token");
+    }
   }
 }
