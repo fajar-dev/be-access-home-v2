@@ -94,3 +94,78 @@ export type SalesCommissionResult = {
   };
   items: CommissionLineItem[];
 };
+
+/** One team member's commission for the period, as shown in the manager dashboard's roster table. */
+export type ManagerTeamMember = {
+  employeeId: string;
+  name: string;
+  photoProfile: string;
+  status: string | null;
+  activityCount: number;
+  achievementStatus: string;
+  motivation: string;
+  newSubscription: number;
+  newMrc: number;
+  newCommission: number;
+  recurringSubscription: number;
+  recurringCommission: number;
+  otherSubscription: number;
+  otherCommission: number;
+  bonus: number;
+  totalCommission: number;
+  /**
+   * This member's share of the manager's override, for the per-row display
+   * column. Approximate: derived from the member's own totals at the
+   * manager's flat rate, not from the authoritative override calculation
+   * in `ManagerOverride` (which also covers non-team rows like CRO
+   * placeholders) — don't expect these to sum exactly to `override`.
+   */
+  managerNewCommission: number;
+  managerRecurringCommission: number;
+  newService: { name: string; count: number; mrc: number; subscription: number }[];
+};
+
+/** KOMISI.md 6.A/6.B: team size, base/final target, and achieved status. */
+export type ManagerTeamPerformance = {
+  totalCount: number;
+  permanentCount: number;
+  otherCount: number;
+  activity: number;
+  baseTarget: number;
+  thresholdPercentage: number;
+  finalTarget: number;
+  achievementPercentage: number;
+  isTargetAchieved: boolean;
+};
+
+/** KOMISI.md 6.C/6.D: the manager's overriding commission on top of the team's production. */
+export type ManagerOverride = {
+  newCommissionRate: number;
+  newCommission: number;
+  teamNewCommissionPot: number;
+  recurringCommissionRate: number;
+  recurringCommission: number;
+  /** NET recurring subscription behind the override, incl. CRO placeholder rows outside the team roster. */
+  teamRecurringSubscriptionNet: number;
+};
+
+export type ManagerCommissionResult = {
+  period: string;
+  startDate: string;
+  endDate: string;
+  managerId: string;
+  team: ManagerTeamPerformance;
+  override: ManagerOverride;
+  /** Team's raw production totals (the "pot" before the manager's override cut). */
+  teamTotals: {
+    newCommission: number;
+    recurringCommission: number;
+    newSubscription: number;
+    newMrc: number;
+  };
+  /** The manager's own personal-sales commission (KOMISI.md 6.F) — same shape as a regular salesperson's. */
+  personal: SalesCommissionResult;
+  /** personal.total.commission + personal.bonus + override.newCommission + override.recurringCommission. */
+  totalCommission: number;
+  members: ManagerTeamMember[];
+};

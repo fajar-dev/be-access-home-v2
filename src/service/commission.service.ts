@@ -1,9 +1,13 @@
 import {
+  applyLateMonthPenalty,
   calculateAchievement,
   calculateBonus,
   calculateCommission,
+  calculateManagerPerformance,
   calculateNusaSelectaActivity,
   getCommissionBasis,
+  getManagerNewCommissionRate,
+  getManagerRecurringRate,
   getServiceGroupLabel,
   hasCommissionRate,
   isNusaBasicPrime,
@@ -20,6 +24,7 @@ import type {
   CommissionSnapshotRow,
   CommissionStats,
   ISnapshotReadRepository,
+  ManagerCommissionResult,
   SalesCommissionResult,
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
@@ -125,6 +130,169 @@ export class CommissionService {
       employeeId,
       yearly,
       months: months.map(({ items, ...summary }) => summary),
+    };
+  }
+
+  /**
+   * Lightweight per-month totals for a whole year, reusing getManagerCommission
+   * for each period.
+   */
+  async getManagerCommissionYear(managerId: string, year: number) {
+    const periods = Array.from({ length: 12 }, (_, i) => `${year}${String(i + 1).padStart(2, "0")}`);
+    const months = await Promise.all(
+      periods.map((period) => this.getManagerCommission(managerId, period)),
+    );
+
+    return { year, managerId, months };
+  }
+
+  /**
+   * Full commission picture for a Manager Area: team target/achievement
+   * (KOMISI.md 6.A/6.B), overriding New/Recurring commission (6.C/6.D), and
+   * the manager's own personal-sales commission (6.F), all NET of each
+   * team member's own churn/penalties.
+   */
+  async getManagerCommission(managerId: string, period: string): Promise<ManagerCommissionResult> {
+    const { start, end } = getDateRangeForPeriod(period);
+    const startDate = toSqlDate(start);
+    const endDate = toSqlDate(end);
+
+    // Direct + recursive team, excluding the manager themselves — KOMISI.md
+    // 6.F: personal sales must never feed back into team activity.
+    const team = await this.employeeService.getHierarchy(managerId, undefined, false, false);
+    const teamIds = team.map((e) => e.employee_id);
+
+    const [statusRows, recurringRows] = await Promise.all([
+      teamIds.length > 0
+        ? this.employeeService.getStatusesByPeriodAndIds(teamIds, startDate, endDate)
+        : Promise.resolve([]),
+      this.snapshotRepository.findRecurringByManager(managerId, period),
+    ]);
+
+    // KOMISI.md 6.E: members without a status_period record for this period
+    // are skipped entirely — no target contribution, no commission, no row.
+    const statusByEmployeeId = new Map(statusRows.map((s) => [s.employee_id, s.status]));
+    const coveredTeam = team.filter((e) => statusByEmployeeId.has(e.employee_id));
+
+    const memberResults = await Promise.all(
+      coveredTeam.map((e) => this.getSalesCommission(e.employee_id, period)),
+    );
+
+    const permanentCount = coveredTeam.filter(
+      (e) => statusByEmployeeId.get(e.employee_id) === "Permanent",
+    ).length;
+    const teamActivity = memberResults.reduce((sum, r) => sum + r.activityCount, 0);
+
+    const performance = calculateManagerPerformance(
+      permanentCount,
+      coveredTeam.length - permanentCount,
+      teamActivity,
+    );
+
+    // 6.F: the manager's own sales use the TEAM's achieved status to gate
+    // the recurring rate/performance penalty, not their personal activity.
+    const personal = await this.getSalesCommission(
+      managerId,
+      period,
+      performance.isTargetAchieved ? 12 : 0,
+    );
+
+    const teamTotals = {
+      newCommission: 0,
+      recurringCommission: 0,
+      newSubscription: 0,
+      newMrc: 0,
+    };
+    for (const r of memberResults) {
+      teamTotals.newCommission += r.breakdown.new.commission;
+      teamTotals.recurringCommission += r.breakdown.recurring.commission;
+      teamTotals.newSubscription += r.breakdown.new.subscription;
+      teamTotals.newMrc += r.breakdown.new.mrc;
+    }
+
+    const newCommissionRate = getManagerNewCommissionRate(performance.achievementPercentage);
+    const overrideNewCommission = teamTotals.newCommission * (newCommissionRate / 100);
+
+    // NET recurring subscription behind the override — same late-payment
+    // treatment as an individual recurring row, summed across every row
+    // credited to this manager (incl. Customer Relation Officer rows).
+    let teamRecurringSubscriptionNet = 0;
+    for (const row of recurringRows) {
+      const basis = getCommissionBasis(
+        toNumber(row.subscription),
+        toNumber(row.referral_fee),
+        row.referral_type,
+      );
+      teamRecurringSubscriptionNet += applyLateMonthPenalty(basis, row.late_month, row.is_approved);
+    }
+
+    const recurringCommissionRate = getManagerRecurringRate(performance.isTargetAchieved);
+    const overrideRecurringCommission =
+      teamRecurringSubscriptionNet * (recurringCommissionRate / 100);
+
+    const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
+    const members = coveredTeam.map((e, i) => {
+      const r = memberResults[i]!;
+      const otherSubscription = r.breakdown.alat.subscription + r.breakdown.setup.subscription;
+      const otherCommission = r.breakdown.alat.commission + r.breakdown.setup.commission;
+
+      return {
+        employeeId: e.employee_id,
+        name: e.name,
+        photoProfile: e.photo_profile,
+        status: statusByEmployeeId.get(e.employee_id) ?? null,
+        activityCount: r.activityCount,
+        achievementStatus: r.achievementStatus,
+        motivation: r.motivation,
+        newSubscription: r.breakdown.new.subscription,
+        newMrc: r.breakdown.new.mrc,
+        newCommission: r.breakdown.new.commission,
+        recurringSubscription: r.breakdown.recurring.subscription,
+        recurringCommission: r.breakdown.recurring.commission,
+        otherSubscription,
+        otherCommission,
+        bonus: r.bonus,
+        totalCommission: r.total.commission + r.bonus,
+        managerNewCommission: r.breakdown.new.commission * (newCommissionRate / 100),
+        managerRecurringCommission: r.breakdown.recurring.subscription * (recurringCommissionRate / 100),
+        newService: serviceGroups.map((name) => ({
+          name,
+          count: r.byServiceGroup[name]?.new.count ?? 0,
+          mrc: r.byServiceGroup[name]?.new.mrc ?? 0,
+          subscription: r.byServiceGroup[name]?.new.subscription ?? 0,
+        })),
+      };
+    });
+
+    return {
+      period,
+      startDate,
+      endDate,
+      managerId,
+      team: {
+        totalCount: coveredTeam.length,
+        permanentCount,
+        otherCount: coveredTeam.length - permanentCount,
+        activity: teamActivity,
+        baseTarget: performance.baseTarget,
+        thresholdPercentage: performance.thresholdPercentage,
+        finalTarget: performance.finalTarget,
+        achievementPercentage: performance.achievementPercentage,
+        isTargetAchieved: performance.isTargetAchieved,
+      },
+      override: {
+        newCommissionRate,
+        newCommission: overrideNewCommission,
+        teamNewCommissionPot: teamTotals.newCommission,
+        recurringCommissionRate,
+        recurringCommission: overrideRecurringCommission,
+        teamRecurringSubscriptionNet,
+      },
+      teamTotals,
+      personal,
+      totalCommission:
+        personal.total.commission + personal.bonus + overrideNewCommission + overrideRecurringCommission,
+      members,
     };
   }
 
