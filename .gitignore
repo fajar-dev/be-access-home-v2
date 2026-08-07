@@ -1,6 +1,9 @@
 # dependencies (bun install)
 node_modules
 
+# user-uploaded files
+uploads
+
 # output
 out
 dist

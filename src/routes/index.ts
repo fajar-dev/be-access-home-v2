@@ -14,4 +14,7 @@ router.post("/auth/logout", (c) => container.authController.logout(c));
 router.get("/employee/:id", authMiddleware, (c) => container.employeeController.getByEmployeeId(c));
 router.get("/employee/:id/hierarchy", authMiddleware, (c) => container.employeeController.getHierarchy(c));
 
+router.get("/feedback", authMiddleware, (c) => container.feedbackController.index(c));
+router.post("/feedback", authMiddleware, (c) => container.feedbackController.store(c));
+
 export default router;

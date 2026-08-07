@@ -8,6 +8,7 @@ import { SnapshotRepository } from "./repository/snapshot.repository";
 import { ServiceCatalogRepository } from "./repository/service-catalog.repository";
 import { NewCustomerRepository } from "./repository/new-customer.repository";
 import { OldCustomerRepository } from "./repository/old-customer.repository";
+import { FeedbackRepository } from "./repository/feedback.repository";
 
 import { EmployeeService } from "./service/employee.service";
 import { SnapshotService } from "./service/snapshot.service";
@@ -16,10 +17,12 @@ import { NewCustomerService } from "./service/new-customer.service";
 import { OldCustomerService } from "./service/old-customer.service";
 import { NusaworkService } from "./service/nusawork.service";
 import { AuthService } from "./service/auth.service";
+import { FeedbackService } from "./service/feedback.service";
 
 import { HealthController } from "./controller/health.controller";
 import { EmployeeController } from "./controller/employee.controller";
 import { AuthController } from "./controller/auth.controller";
+import { FeedbackController } from "./controller/feedback.controller";
 
 /**
  * Composition root: the one place the full dependency graph gets wired
@@ -46,6 +49,7 @@ class Container {
     this.sheetsClient,
   );
   readonly nusaworkClient = new NusaworkClient();
+  readonly feedbackRepository = new FeedbackRepository();
 
   // Services
   readonly employeeService = new EmployeeService(this.employeeRepository);
@@ -65,11 +69,13 @@ class Container {
   );
   readonly nusaworkService = new NusaworkService(this.nusaworkClient);
   readonly authService = new AuthService();
+  readonly feedbackService = new FeedbackService(this.feedbackRepository);
 
   // Controllers
   readonly healthController = new HealthController();
   readonly employeeController = new EmployeeController(this.employeeService);
   readonly authController = new AuthController(this.authService, this.employeeService);
+  readonly feedbackController = new FeedbackController(this.feedbackService, this.employeeService);
 
   /** Closes every open DB connection pool — call before a job/process exits. */
   async closeConnections(): Promise<void> {
