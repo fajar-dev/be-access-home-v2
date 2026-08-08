@@ -163,8 +163,14 @@ export type ManagerCommissionResult = {
     newSubscription: number;
     newMrc: number;
   };
-  /** The manager's own personal-sales commission (KOMISI.md 6.F) — same shape as a regular salesperson's. */
+  /** The manager's own personal-sales commission (KOMISI.md 6.F) — same shape as a regular salesperson's, invoice items included. */
   personal: SalesCommissionResult;
+  /**
+   * Customer Relation Officer recurring rows credited to this manager
+   * (KOMISI.md 6.D) — no real salesperson, so these never appear in any
+   * team member's own invoice list. Valued at override.recurringCommissionRate.
+   */
+  croRecurring: CommissionLineItem[];
   /** personal.total.commission + personal.bonus + override.newCommission + override.recurringCommission. */
   totalCommission: number;
   members: ManagerTeamMember[];

@@ -29,6 +29,7 @@ import type {
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
+import { CRO_PLACEHOLDER } from "./employee.service";
 
 function emptyStats(): CommissionStats {
   return { count: 0, commission: 0, subscription: 0, mrc: 0 };
@@ -230,6 +231,14 @@ export class CommissionService {
     const overrideRecurringCommission =
       teamRecurringSubscriptionNet * (recurringCommissionRate / 100);
 
+    // KOMISI.md 6.D: Customer Relation Officer rows have no real salesperson,
+    // so they never appear in any team member's own invoice list — surfaced
+    // here instead, valued at the manager's own override rate since that's
+    // the only commission stream they actually feed.
+    const croRecurring = recurringRows
+      .filter((row) => row.sales === CRO_PLACEHOLDER)
+      .map((row) => this.valueManagerRecurringRow(row, recurringCommissionRate));
+
     const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
     const members = coveredTeam.map((e, i) => {
       const r = memberResults[i]!;
@@ -290,9 +299,49 @@ export class CommissionService {
       },
       teamTotals,
       personal,
+      croRecurring,
       totalCommission:
         personal.total.commission + personal.bonus + overrideNewCommission + overrideRecurringCommission,
       members,
+    };
+  }
+
+  /**
+   * Values a raw recurring snapshot row at a flat percentage instead of the
+   * usual status/activity-gated rate — used for Customer Relation Officer
+   * rows, which have no real employee to derive a rate from.
+   */
+  private valueManagerRecurringRow(row: CommissionSnapshotRow, ratePercentage: number): CommissionLineItem {
+    const months = Math.max(toNumber(row.month) || 1, 1);
+    const subscription = toNumber(row.subscription);
+    const mrc = subscription / months;
+    const basis = getCommissionBasis(subscription, toNumber(row.referral_fee), row.referral_type);
+    const baseCommission = applyLateMonthPenalty(basis, row.late_month, row.is_approved);
+
+    return {
+      aiInvoice: row.ai_invoice,
+      aiReceipt: row.ai_receipt,
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      customerCompany: row.customer_company,
+      customerServiceId: row.customer_service_id,
+      customerServiceAccount: row.customer_service_account,
+      serviceId: row.service_id,
+      serviceName: row.service_name,
+      category: row.category,
+      businessOperation: row.business_operation,
+      type: "recurring",
+      month: months,
+      lateMonth: toNumber(row.late_month),
+      isApproved: Boolean(row.is_approved),
+      paidDate: row.paid_date ? toSqlDate(new Date(row.paid_date)) : null,
+      subscription,
+      mrc,
+      referralFee: toNumber(row.referral_fee),
+      referralType: row.referral_type,
+      baseCommission,
+      commissionPercentage: ratePercentage,
+      commission: baseCommission * (ratePercentage / 100),
     };
   }
 
