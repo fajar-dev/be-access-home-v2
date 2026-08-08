@@ -7,7 +7,9 @@ import type {
   StatusPeriodRow,
 } from "../interface/employee.interface";
 
-const SALES_UNMATCHED_ALLOWED = new Set(["Customer Relation Officer"]);
+/** Placeholder used when a snapshot row's `sales` name doesn't match any employee. */
+export const CRO_PLACEHOLDER = "Customer Relation Officer";
+const SALES_UNMATCHED_ALLOWED = new Set([CRO_PLACEHOLDER]);
 
 export class EmployeeService implements IEmployeeService {
   constructor(private readonly employeeRepository: IEmployeeRepository) {}
