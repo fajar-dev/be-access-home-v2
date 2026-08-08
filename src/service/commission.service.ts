@@ -281,8 +281,8 @@ export class CommissionService {
       team: {
         totalCount: coveredTeam.length,
         permanentCount,
-        otherCount: coveredTeam.length - permanentCount,
-        activity: teamActivity,
+        nonPermanentCount: coveredTeam.length - permanentCount,
+        activityCount: teamActivity,
         baseTarget: performance.baseTarget,
         thresholdPercentage: performance.thresholdPercentage,
         finalTarget: performance.finalTarget,
@@ -292,7 +292,6 @@ export class CommissionService {
       override: {
         newCommissionRate,
         newCommission: overrideNewCommission,
-        teamNewCommissionPot: teamTotals.newCommission,
         recurringCommissionRate,
         recurringCommission: overrideRecurringCommission,
         teamRecurringSubscriptionNet,

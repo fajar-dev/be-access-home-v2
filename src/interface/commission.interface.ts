@@ -129,8 +129,8 @@ export type ManagerTeamMember = {
 export type ManagerTeamPerformance = {
   totalCount: number;
   permanentCount: number;
-  otherCount: number;
-  activity: number;
+  nonPermanentCount: number;
+  activityCount: number;
   baseTarget: number;
   thresholdPercentage: number;
   finalTarget: number;
@@ -142,7 +142,6 @@ export type ManagerTeamPerformance = {
 export type ManagerOverride = {
   newCommissionRate: number;
   newCommission: number;
-  teamNewCommissionPot: number;
   recurringCommissionRate: number;
   recurringCommission: number;
   /** NET recurring subscription behind the override, incl. CRO placeholder rows outside the team roster. */
