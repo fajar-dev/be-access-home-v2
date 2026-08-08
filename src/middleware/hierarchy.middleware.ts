@@ -8,7 +8,7 @@ export async function hierarchyMiddleware(c: Context, next: Next) {
   const targetEmployeeId = c.req.param("id");
 
   if (!user?.sub) {
-    throw new UnauthorizedException("Unauthorized: User identity missing");
+    throw new UnauthorizedException("User identity missing");
   }
 
   // Include inactive employees for this authorization check.
@@ -21,7 +21,7 @@ export async function hierarchyMiddleware(c: Context, next: Next) {
 
   const isAuthorized = hierarchy.some((emp) => emp.employee_id === targetEmployeeId);
   if (!isAuthorized) {
-    throw new ForbiddenException("Forbidden: You do not have access to this resource");
+    throw new ForbiddenException("You do not have access to this resource");
   }
 
   await next();

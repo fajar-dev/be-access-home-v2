@@ -68,7 +68,7 @@ export class AuthController {
     }
 
     const tokens = await this.authService.generateTokens(employee);
-    return c.json(successResponse("Token refreshed", { ...tokens, user: employee }));
+    return c.json(successResponse("Token refreshed successfully", { ...tokens, user: employee }));
   }
 
   async me(c: Context) {
@@ -88,11 +88,11 @@ export class AuthController {
       throw new NotFoundException("User not found");
     }
 
-    return c.json(successResponse("User retrieved", employee));
+    return c.json(successResponse("User retrieved successfully", employee));
   }
 
   async logout(c: Context) {
     // Stateless JWT logout — client is responsible for discarding the token.
-    return c.json(successResponse("Logged out successfully"));
+    return c.json(successResponse("Logout successful"));
   }
 }
