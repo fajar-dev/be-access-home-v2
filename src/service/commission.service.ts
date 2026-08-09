@@ -198,17 +198,44 @@ export class CommissionService {
       performance.isTargetAchieved ? 12 : 0,
     );
 
+    const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
+    const emptyGroupTotal = () => ({
+      newCount: 0,
+      newSubscription: 0,
+      newMrc: 0,
+      newCommission: 0,
+      recurringSubscription: 0,
+      recurringCommission: 0,
+    });
+
     const teamTotals = {
       newCommission: 0,
       recurringCommission: 0,
       newSubscription: 0,
       newMrc: 0,
+      byServiceGroup: {
+        Home: emptyGroupTotal(),
+        Nusafiber: emptyGroupTotal(),
+        NusaSelecta: emptyGroupTotal(),
+      },
     };
     for (const r of memberResults) {
       teamTotals.newCommission += r.breakdown.new.commission;
       teamTotals.recurringCommission += r.breakdown.recurring.commission;
       teamTotals.newSubscription += r.breakdown.new.subscription;
       teamTotals.newMrc += r.breakdown.new.mrc;
+
+      for (const group of serviceGroups) {
+        const g = r.byServiceGroup[group];
+        if (!g) continue;
+        const target = teamTotals.byServiceGroup[group];
+        target.newCount += g.new.count;
+        target.newSubscription += g.new.subscription;
+        target.newMrc += g.new.mrc;
+        target.newCommission += g.new.commission;
+        target.recurringSubscription += g.recurring.subscription;
+        target.recurringCommission += g.recurring.commission;
+      }
     }
 
     const newCommissionRate = getManagerNewCommissionRate(performance.achievementPercentage);
@@ -239,7 +266,6 @@ export class CommissionService {
       .filter((row) => row.sales === CRO_PLACEHOLDER)
       .map((row) => this.valueManagerRecurringRow(row, recurringCommissionRate));
 
-    const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
     const members = coveredTeam.map((e, i) => {
       const r = memberResults[i]!;
       const otherSubscription = r.breakdown.alat.subscription + r.breakdown.setup.subscription;

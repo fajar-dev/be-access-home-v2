@@ -161,6 +161,18 @@ export type ManagerCommissionResult = {
     recurringCommission: number;
     newSubscription: number;
     newMrc: number;
+    /** Same totals, split out per service group (Home/Nusafiber/NusaSelecta). */
+    byServiceGroup: Record<
+      "Home" | "Nusafiber" | "NusaSelecta",
+      {
+        newCount: number;
+        newSubscription: number;
+        newMrc: number;
+        newCommission: number;
+        recurringSubscription: number;
+        recurringCommission: number;
+      }
+    >;
   };
   /** The manager's own personal-sales commission (KOMISI.md 6.F) — same shape as a regular salesperson's, invoice items included. */
   personal: SalesCommissionResult;
