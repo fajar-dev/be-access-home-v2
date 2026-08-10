@@ -32,6 +32,13 @@ import type {
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
 import { DEFAULT_SALES_TARGET, type IEmployeeService } from "../interface/employee.interface";
+import {
+  ADJUSTABLE_FIELD_COLUMNS,
+  type AdjustableSnapshotFields,
+  type SnapshotAdjustmentItem,
+  type SnapshotDetailItem,
+} from "../interface/adjustment.interface";
+import { NotFoundException } from "../exception/http.exception";
 import { CRO_PLACEHOLDER } from "./employee.service";
 
 function emptyStats(): CommissionStats {
@@ -376,6 +383,7 @@ export class CommissionService {
       month: months,
       lateMonth: toNumber(row.late_month),
       isApproved: Boolean(row.is_approved),
+      isAdjusted: Boolean(row.is_adjusted),
       paidDate: row.paid_date ? toSqlDate(new Date(row.paid_date)) : null,
       subscription,
       mrc,
@@ -498,6 +506,7 @@ export class CommissionService {
         month: months,
         lateMonth: toNumber(row.late_month),
         isApproved: Boolean(row.is_approved),
+        isAdjusted: Boolean(row.is_adjusted),
         paidDate: row.paid_date ? toSqlDate(new Date(row.paid_date)) : null,
         subscription,
         mrc,
@@ -748,5 +757,97 @@ export class CommissionService {
     referralType: string | null,
   ): Promise<void> {
     return this.snapshotRepository.updateReferral(aiInvoice, referralFee, referralType);
+  }
+
+  /** Full raw invoice row for the admin adjustment form — every field, not just the summary list's subset. */
+  async getInvoiceDetail(aiInvoice: number): Promise<SnapshotDetailItem> {
+    const row = await this.snapshotRepository.findByAiInvoice(aiInvoice);
+    if (!row) {
+      throw new NotFoundException("Invoice not found");
+    }
+
+    return {
+      aiInvoice: row.ai_invoice,
+      aiReceipt: row.ai_receipt,
+      period: row.period,
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      customerCompany: row.customer_company,
+      customerServiceId: row.customer_service_id,
+      customerServiceAccount: row.customer_service_account,
+      serviceId: row.service_id,
+      serviceName: row.service_name,
+      category: row.category,
+      sales: row.sales,
+      manager: row.manager,
+      vendor: row.vendor ?? null,
+      subscription: row.subscription,
+      lineRental: row.line_rental,
+      paidDate: row.paid_date ? toSqlDate(new Date(row.paid_date)) : null,
+      month: row.month,
+      lateMonth: row.late_month,
+      type: row.type,
+      referralFee: row.referral_fee,
+      referralType: row.referral_type,
+      referralName: row.referral_name,
+      businessOperation: row.business_operation,
+      isApproved: Boolean(row.is_approved),
+      isAdjusted: Boolean(row.is_adjusted),
+    };
+  }
+
+  /**
+   * Admin correction of one invoice row's data (customer/service/financial/
+   * attribution fields — anything beyond the dedicated approve/referral
+   * endpoints). Marks the row `is_adjusted` so a future re-crawl for that
+   * period never overwrites it (see snapshot.repository.ts#replaceForPeriod),
+   * and appends a before/after entry to the audit log.
+   */
+  async adjustInvoice(
+    aiInvoice: number,
+    employeeId: string,
+    changes: AdjustableSnapshotFields,
+    note: string,
+  ): Promise<void> {
+    const current = await this.snapshotRepository.findByAiInvoice(aiInvoice);
+    if (!current) {
+      throw new NotFoundException("Invoice not found");
+    }
+
+    const oldValue: Partial<AdjustableSnapshotFields> = {};
+    const newValue: Partial<AdjustableSnapshotFields> = {};
+
+    for (const key of Object.keys(changes) as (keyof AdjustableSnapshotFields)[]) {
+      const value = changes[key];
+      if (value === undefined) continue;
+
+      const column = ADJUSTABLE_FIELD_COLUMNS[key];
+      (oldValue as Record<string, unknown>)[key] = current[column as keyof CommissionSnapshotRow] ?? null;
+      (newValue as Record<string, unknown>)[key] = value;
+    }
+
+    if (Object.keys(newValue).length === 0) return;
+
+    await this.snapshotRepository.updateAdjustableFields(aiInvoice, changes);
+    await this.snapshotRepository.insertAdjustmentLog(aiInvoice, employeeId, oldValue, newValue, note);
+  }
+
+  /** Full before/after history of admin corrections made to one invoice row. */
+  async getInvoiceAdjustments(aiInvoice: number): Promise<SnapshotAdjustmentItem[]> {
+    const rows = await this.snapshotRepository.findAdjustmentsByAiInvoice(aiInvoice);
+    const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
+    const employees = await Promise.all(employeeIds.map((id) => this.employeeService.findByEmployeeId(id)));
+    const nameByEmployeeId = new Map(employeeIds.map((id, i) => [id, employees[i]?.name ?? null]));
+
+    return rows.map((row) => ({
+      id: row.id,
+      aiInvoice: row.ai_invoice,
+      employeeId: row.employee_id,
+      employeeName: nameByEmployeeId.get(row.employee_id) ?? null,
+      oldValue: JSON.parse(row.old_value),
+      newValue: JSON.parse(row.new_value),
+      note: row.note,
+      createdAt: row.created_at,
+    }));
   }
 }
