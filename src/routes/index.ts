@@ -52,5 +52,9 @@ router.get("/summary/churn", authMiddleware, adminMiddleware, (c) => container.s
 router.post("/summary/churn/:id/approve", authMiddleware, adminMiddleware, (c) =>
   container.summaryController.approveChurn(c),
 );
+router.get("/summary/target", authMiddleware, adminMiddleware, (c) => container.summaryController.target(c));
+router.put("/summary/target/:id", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.updateTarget(c),
+);
 
 export default router;
