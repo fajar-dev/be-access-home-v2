@@ -35,6 +35,10 @@ export interface ISnapshotReadRepository {
   findBySalesIds(employeeIds: string[], period: string): Promise<CommissionSnapshotRow[]>;
   /** Recurring rows credited to a manager via the `manager` column — includes rows with no real salesperson (e.g. Customer Relation Officer). */
   findRecurringByManager(managerId: string, period: string): Promise<CommissionSnapshotRow[]>;
+  /** Admin approval for a late-paid invoice, waiving its late-payment penalty (KOMISI.md 1). */
+  updateApproval(aiInvoice: number, isApproved: boolean): Promise<void>;
+  /** Admin edit of a referral fee/type on one invoice row. */
+  updateReferral(aiInvoice: number, referralFee: number, referralType: string | null): Promise<void>;
 }
 
 export type CommissionStats = {

@@ -53,6 +53,24 @@ export class SnapshotRepository implements ISnapshotRepository, ISnapshotReadRep
     );
   }
 
+  async updateApproval(aiInvoice: number, isApproved: boolean): Promise<void> {
+    await this.db.query(`UPDATE snapshots SET is_approved = ? WHERE ai_invoice = ?`, [
+      isApproved ? 1 : 0,
+      aiInvoice,
+    ]);
+  }
+
+  async updateReferral(
+    aiInvoice: number,
+    referralFee: number,
+    referralType: string | null,
+  ): Promise<void> {
+    await this.db.query(
+      `UPDATE snapshots SET referral_fee = ?, referral_type = ? WHERE ai_invoice = ?`,
+      [referralFee, referralType, aiInvoice],
+    );
+  }
+
   /**
    * Replaces every snapshots row for `period` whose `type` is in `types`
    * with `rows`, inside one transaction — so a re-run swaps that slice of
