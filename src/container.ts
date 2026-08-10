@@ -27,6 +27,7 @@ import { EmployeeController } from "./controller/employee.controller";
 import { AuthController } from "./controller/auth.controller";
 import { FeedbackController } from "./controller/feedback.controller";
 import { CommissionController } from "./controller/commission.controller";
+import { SummaryController } from "./controller/summary.controller";
 
 /**
  * Composition root: the one place the full dependency graph gets wired
@@ -88,6 +89,7 @@ class Container {
   readonly authController = new AuthController(this.authService, this.employeeService);
   readonly feedbackController = new FeedbackController(this.feedbackService, this.employeeService);
   readonly commissionController = new CommissionController(this.commissionService);
+  readonly summaryController = new SummaryController(this.commissionService, this.churnService);
 
   /** Closes every open DB connection pool — call before a job/process exits. */
   async closeConnections(): Promise<void> {

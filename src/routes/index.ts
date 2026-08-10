@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { container } from "../container";
 import { authMiddleware } from "../middleware/auth.middleware";
 import { hierarchyMiddleware } from "../middleware/hierarchy.middleware";
+import { adminMiddleware } from "../middleware/admin.middleware";
 
 const router = new Hono();
 
@@ -37,5 +38,19 @@ router.get("/manager/:id/commission/year", authMiddleware, hierarchyMiddleware, 
 
 router.get("/feedback", authMiddleware, (c) => container.feedbackController.index(c));
 router.post("/feedback", authMiddleware, (c) => container.feedbackController.store(c));
+
+router.get("/summary/sales", authMiddleware, adminMiddleware, (c) => container.summaryController.sales(c));
+router.get("/summary/manager", authMiddleware, adminMiddleware, (c) => container.summaryController.manager(c));
+router.get("/summary/invoice", authMiddleware, adminMiddleware, (c) => container.summaryController.invoice(c));
+router.post("/summary/invoice/:ai/approve", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.approveInvoice(c),
+);
+router.put("/summary/invoice/:ai", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.updateInvoiceReferral(c),
+);
+router.get("/summary/churn", authMiddleware, adminMiddleware, (c) => container.summaryController.churn(c));
+router.post("/summary/churn/:id/approve", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.approveChurn(c),
+);
 
 export default router;
