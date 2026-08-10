@@ -112,4 +112,12 @@ export class EmployeeService implements IEmployeeService {
   ): Promise<EmployeeDetail[]> {
     return this.employeeRepository.findHierarchy(employeeId, search, isSelf, isActiveOnly);
   }
+
+  getAllSalesEmployees(): Promise<EmployeeDetail[]> {
+    return this.employeeRepository.findAllSalesEmployees();
+  }
+
+  getAllManagerEmployees(): Promise<EmployeeDetail[]> {
+    return this.employeeRepository.findAllManagerEmployees();
+  }
 }

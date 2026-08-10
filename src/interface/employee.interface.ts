@@ -83,6 +83,10 @@ export interface IEmployeeRepository {
     isSelf: boolean,
     isActiveOnly: boolean,
   ): Promise<EmployeeDetail[]>;
+  /** Every active Account Manager (job_level='Staff', job_position='Account Manager') — the admin sales summary roster. */
+  findAllSalesEmployees(): Promise<EmployeeDetail[]>;
+  /** Every active Manager/C-Level employee — the admin manager summary roster. */
+  findAllManagerEmployees(): Promise<EmployeeDetail[]>;
 }
 
 export type SalesResolution = { value: string | null; skip: boolean };
@@ -131,4 +135,6 @@ export interface IEmployeeService {
     isSelf?: boolean,
     isActiveOnly?: boolean,
   ): Promise<EmployeeDetail[]>;
+  getAllSalesEmployees(): Promise<EmployeeDetail[]>;
+  getAllManagerEmployees(): Promise<EmployeeDetail[]>;
 }
