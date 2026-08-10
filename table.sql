@@ -51,7 +51,7 @@ CREATE TABLE status_period (
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
     status ENUM('Probation', 'Permanent') NOT NULL DEFAULT 'Probation',
-    target INT NOT NULL DEFAULT 12
+    target INT NOT NULL DEFAULT 0
 );
 
 CREATE TABLE churn (

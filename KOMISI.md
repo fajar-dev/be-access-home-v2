@@ -2,7 +2,9 @@
 
 Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
 
-> **⚠️ Target Aktivitas kini dapat dikonfigurasi per Account Manager per periode** (menu admin *Summary > Target*), dengan default **12** bila belum pernah diatur (`DEFAULT_SALES_TARGET`). Target inilah yang dipakai untuk rate recurring (2.A) dan performance penalty (1.2), serta ikut membentuk Target Dasar Tim seorang manager (6.A). **Tier badge Achievement (Bagian 5.A: Capai target Bonus/Capai target/SP1) TIDAK ikut berubah** — tetap memakai angka tetap 15/12/3 berapa pun target aktivitas seorang Account Manager diatur.
+> **⚠️ Target Aktivitas kini dapat dikonfigurasi per Account Manager per periode** (menu admin *Summary > Target*), disimpan sebagai kolom `target` di tabel `status_period` (satu baris = satu employee + satu periode), dengan default **12** (`DEFAULT_SALES_TARGET`) untuk status **Permanent**, dan **0** untuk status **Probation** (karena rate recurring & performance penalty hanya pernah menggerbang status Permanent — lihat 2.A & 1.2) saat baris itu pertama dibuat oleh `employee:crawl`. Target inilah yang dipakai untuk rate recurring (2.A) dan performance penalty (1.2), serta ikut membentuk Target Dasar Tim seorang manager (6.A). **Tier badge Achievement (Bagian 5.A: Capai target Bonus/Capai target/SP1) TIDAK ikut berubah** — tetap memakai angka tetap 15/12/3 berapa pun target aktivitas seorang Account Manager diatur.
+>
+> **Tidak ada baris `status_period` = belum terdaftar pada periode itu**: sama seperti aturan 6.E untuk anggota tim manager, sales yang belum pernah di-crawl untuk periode tersebut (mis. periode di masa depan, atau sebelum sales itu bergabung) **tidak muncul** di halaman *Summary > Target* dan **tidak bisa** diatur targetnya sampai `employee:crawl` membuat baris `status_period` untuk periode itu.
 
 ## Aturan dan Perhitungan Komisi Sales & Manager
 

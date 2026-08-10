@@ -1,12 +1,13 @@
 import type { AppDatabase } from "../lib/app-database";
-import type {
-  EmployeeDetail,
-  EmployeeRow,
-  EmployeeUpsertInput,
-  IEmployeeRepository,
-  SalesTargetItem,
-  StatusPeriodDetail,
-  StatusPeriodRow,
+import {
+  DEFAULT_SALES_TARGET,
+  type EmployeeDetail,
+  type EmployeeRow,
+  type EmployeeUpsertInput,
+  type IEmployeeRepository,
+  type SalesTargetItem,
+  type StatusPeriodDetail,
+  type StatusPeriodRow,
 } from "../interface/employee.interface";
 
 export class EmployeeRepository implements IEmployeeRepository {
@@ -111,9 +112,12 @@ export class EmployeeRepository implements IEmployeeRepository {
       return;
     }
 
+    // Only Permanent staff are ever gated on target (rate/performance-penalty
+    // checks all require status === 'Permanent'), so Probation starts at 0.
+    const target = status === "Permanent" ? DEFAULT_SALES_TARGET : 0;
     await this.db.query(
-      `INSERT INTO status_period (employee_id, start_date, end_date, status) VALUES (?, ?, ?, ?)`,
-      [employeeId, startDate, endDate, status],
+      `INSERT INTO status_period (employee_id, start_date, end_date, status, target) VALUES (?, ?, ?, ?, ?)`,
+      [employeeId, startDate, endDate, status, target],
     );
   }
 
