@@ -32,6 +32,7 @@ import type {
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
+import { DEFAULT_SALES_TARGET, type ITargetService } from "../interface/target.interface";
 import { CRO_PLACEHOLDER } from "./employee.service";
 
 function emptyStats(): CommissionStats {
@@ -91,6 +92,7 @@ export class CommissionService {
     private readonly snapshotRepository: ISnapshotReadRepository,
     private readonly churnService: IChurnService,
     private readonly employeeService: IEmployeeService,
+    private readonly targetService: ITargetService,
   ) {}
 
   /**
@@ -102,13 +104,14 @@ export class CommissionService {
     const startDate = toSqlDate(start);
     const endDate = toSqlDate(end);
 
-    const [rows, status] = await Promise.all([
+    const [rows, status, target] = await Promise.all([
       this.churnService.getByEmployeeId(employeeId, startDate, endDate),
       this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
+      this.targetService.getTarget(employeeId, period),
     ]);
 
     return rows.map((churn) => {
-      const { mrc, commission, commissionPercentage } = this.valueChurn(churn, status);
+      const { mrc, commission, commissionPercentage } = this.valueChurn(churn, status, target);
       return { ...churn, mrc, commission, commissionPercentage };
     });
   }
@@ -166,11 +169,13 @@ export class CommissionService {
     const team = await this.employeeService.getHierarchy(managerId, undefined, false, false);
     const teamIds = team.map((e) => e.employee_id);
 
-    const [statusRows, recurringRows] = await Promise.all([
+    const [statusRows, recurringRows, teamTargets, managerTarget] = await Promise.all([
       teamIds.length > 0
         ? this.employeeService.getStatusesByPeriodAndIds(teamIds, startDate, endDate)
         : Promise.resolve([]),
       this.snapshotRepository.findRecurringByManager(managerId, period),
+      this.targetService.getTargetsByEmployeeIds(teamIds, period),
+      this.targetService.getTarget(managerId, period),
     ]);
 
     // KOMISI.md 6.E: members without a status_period record for this period
@@ -179,18 +184,24 @@ export class CommissionService {
     const coveredTeam = team.filter((e) => statusByEmployeeId.has(e.employee_id));
 
     const memberResults = await Promise.all(
-      coveredTeam.map((e) => this.getSalesCommission(e.employee_id, period)),
+      coveredTeam.map((e) =>
+        this.getSalesCommission(e.employee_id, period, undefined, teamTargets.get(e.employee_id)),
+      ),
     );
 
     const permanentCount = coveredTeam.filter(
       (e) => statusByEmployeeId.get(e.employee_id) === "Permanent",
     ).length;
     const teamActivity = memberResults.reduce((sum, r) => sum + r.activityCount, 0);
+    const permanentTargetSum = coveredTeam
+      .filter((e) => statusByEmployeeId.get(e.employee_id) === "Permanent")
+      .reduce((sum, e) => sum + (teamTargets.get(e.employee_id) ?? DEFAULT_SALES_TARGET), 0);
 
     const performance = calculateManagerPerformance(
       permanentCount,
       coveredTeam.length - permanentCount,
       teamActivity,
+      permanentTargetSum,
     );
 
     // 6.F: the manager's own sales use the TEAM's achieved status to gate
@@ -198,7 +209,8 @@ export class CommissionService {
     const personal = await this.getSalesCommission(
       managerId,
       period,
-      performance.isTargetAchieved ? 12 : 0,
+      performance.isTargetAchieved ? managerTarget : 0,
+      managerTarget,
     );
 
     const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
@@ -385,22 +397,27 @@ export class CommissionService {
     period: string,
     /**
      * Overrides the activity count fed into the recurring-rate and
-     * performance-penalty checks (both gated on `< 12`), without touching
+     * performance-penalty checks (both gated on `< target`), without touching
      * the real activityCount used for achievement/motivation/bonus display.
      * Used for a Manager's personal sales (KOMISI.md 6.F), where "target
      * achieved" comes from the manager's own team performance rather than
      * their personal New Achievement.
      */
     rateActivityCountOverride?: number,
+    /** This employee's New Achievement target for the period. Defaults to their configured/default target when omitted. */
+    targetOverride?: number,
   ): Promise<SalesCommissionResult> {
     const { start, end } = getDateRangeForPeriod(period);
     const startDate = toSqlDate(start);
     const endDate = toSqlDate(end);
 
-    const [allRows, churnRows, status] = await Promise.all([
+    const [allRows, churnRows, status, target] = await Promise.all([
       this.snapshotRepository.findBySales(employeeId, period),
       this.churnService.getByEmployeeId(employeeId, startDate, endDate),
       this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
+      targetOverride !== undefined
+        ? Promise.resolve(targetOverride)
+        : this.targetService.getTarget(employeeId, period),
     ]);
 
     const rows = allRows.filter((row) => !isExcludedFromCommission(row));
@@ -443,6 +460,7 @@ export class CommissionService {
           months,
           status,
           activityCount: rateActivityCount,
+          target,
           hasSetup: customerHasSetup.has(row.customer_id),
           businessOperation: row.business_operation,
         },
@@ -500,7 +518,7 @@ export class CommissionService {
     const deduction = this.applyChurnDeduction(
       churnRows,
       status,
-      activityCount,
+      target,
       total,
       breakdown,
       byServiceGroup,
@@ -573,7 +591,7 @@ export class CommissionService {
    * target was met, so the deduction itself isn't discounted by the
    * performance penalty.
    */
-  private valueChurn(churn: ChurnRow, status: string | null) {
+  private valueChurn(churn: ChurnRow, status: string | null, target: number) {
     const price = toNumber(churn.price);
     const months = Math.max(toNumber(churn.period) || 1, 1);
     const mrc = price / months;
@@ -584,7 +602,8 @@ export class CommissionService {
       serviceId: churn.service_id,
       months,
       status,
-      activityCount: 12,
+      activityCount: target,
+      target,
       hasSetup: false,
       businessOperation: null,
     });
@@ -599,7 +618,7 @@ export class CommissionService {
   private applyChurnDeduction(
     churnRows: ChurnRow[],
     status: string | null,
-    activityCount: number,
+    target: number,
     total: CommissionStats,
     breakdown: CommissionBreakdown,
     byServiceGroup: Record<string, CommissionBreakdown>,
@@ -609,7 +628,7 @@ export class CommissionService {
     for (const churn of churnRows) {
       if (churn.is_approved) continue;
 
-      const { price, mrc, commission } = this.valueChurn(churn, status);
+      const { price, mrc, commission } = this.valueChurn(churn, status, target);
 
       deduction.count += 1;
       deduction.commission += commission;

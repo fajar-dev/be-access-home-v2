@@ -51,9 +51,6 @@ const TEAM_TARGET_THRESHOLDS: Record<number, number> = {
   6: 95, 7: 92, 8: 90, 9: 88, 10: 85,
 };
 
-/** Minimum monthly New Achievement expected from one Permanent sales. */
-export const PERMANENT_TARGET_PER_HEAD = 12;
-
 export function toNumber(value: unknown): number {
   return Number(value || 0);
 }
@@ -159,6 +156,8 @@ export type CommissionRateInput = {
   status: string | null | undefined;
   /** Net New Achievement for the period, used for the target-dependent rates. */
   activityCount: number;
+  /** This employee's New Achievement target for the period (default DEFAULT_SALES_TARGET, admin-configurable). */
+  target: number;
   /** True when the same customer also has a Setup invoice this period. */
   hasSetup: boolean;
   /** 'Internal' | 'Resell', only meaningful for Digital Business. */
@@ -167,7 +166,7 @@ export type CommissionRateInput = {
 
 /** Returns the commission percentage (e.g. 1.5 means 1.5%). */
 export function getCommissionPercentage(input: CommissionRateInput): number {
-  const { category, type, serviceId, months, status, activityCount } = input;
+  const { category, type, serviceId, months, status, activityCount, target } = input;
 
   if (category === "setup") return 5;
   if (category === "alat") return input.hasSetup ? 2 : 1;
@@ -185,7 +184,7 @@ export function getCommissionPercentage(input: CommissionRateInput): number {
     case "prorate":
       return 10;
     case "recurring":
-      return status === "Permanent" && activityCount < PERMANENT_TARGET_PER_HEAD ? 0.5 : 1.5;
+      return status === "Permanent" && activityCount < target ? 0.5 : 1.5;
     case "new":
     case "upgrade":
       return getNewUpgradeRate(serviceId, months);
@@ -203,12 +202,13 @@ export function getPerformancePenalty(
   type: SnapshotType,
   status: string | null | undefined,
   activityCount: number,
+  target: number,
 ): number {
   const applies =
     category === "home" &&
     type === "new" &&
     status === "Permanent" &&
-    activityCount < PERMANENT_TARGET_PER_HEAD;
+    activityCount < target;
 
   return applies ? 0.7 : 0;
 }
@@ -231,6 +231,7 @@ export function calculateCommission(
     input.type,
     input.status,
     input.activityCount,
+    input.target,
   );
 
   const baseCommission = Math.max(0, afterLate * (1 - penalty));
@@ -305,7 +306,7 @@ export function getTeamTargetThreshold(totalTeamSize: number): number {
 }
 
 export type ManagerPerformance = {
-  /** Permanent headcount x 12. */
+  /** Sum of each Permanent team member's own target for the period. */
   baseTarget: number;
   /** Threshold percentage from the team-size table. */
   thresholdPercentage: number;
@@ -320,6 +321,8 @@ export function calculateManagerPerformance(
   permanentCount: number,
   probationCount: number,
   teamActivity: number,
+  /** Sum of each Permanent team member's own target for the period (admin-configurable, default DEFAULT_SALES_TARGET each). */
+  permanentTargetSum: number,
 ): ManagerPerformance {
   const totalTeamSize = permanentCount + probationCount;
   const thresholdPercentage = getTeamTargetThreshold(totalTeamSize);
@@ -336,7 +339,7 @@ export function calculateManagerPerformance(
     };
   }
 
-  const baseTarget = permanentCount * PERMANENT_TARGET_PER_HEAD;
+  const baseTarget = permanentTargetSum;
   const finalTarget = Math.round(baseTarget * (thresholdPercentage / 100));
 
   return {
