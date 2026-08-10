@@ -32,6 +32,9 @@ const VPS_SERVICE_IDS = [
 
 const FO_CATEGORIES = ["FO", "FO Prepaid"];
 
+// Never commission-eligible — dropped outright rather than rated at 0%.
+const EXCLUDED_OLD_CUSTOMER_CATEGORIES = new Set(["IP Public", "Domain"]);
+
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
@@ -240,10 +243,11 @@ export class OldCustomerService implements IOldCustomerService {
   }
 
   /**
-   * Old-customer variant: no category allowlist (every category is kept),
-   * subscription comes straight from DPP, and type is always "recurring".
-   * Paid gate, the Alat/Setup service-name prefix rule, and sales/manager
-   * resolution stay identical to the new-customer path.
+   * Old-customer variant: no category allowlist (every category is kept)
+   * except IP Public and Domain, which never earn commission and are
+   * dropped outright. Subscription comes straight from DPP, and type is
+   * always "recurring". Paid gate, the Alat/Setup service-name prefix rule,
+   * and sales/manager resolution stay identical to the new-customer path.
    */
   buildRecurringSnapshotValues(
     input: RawSnapshotInput,
@@ -252,6 +256,7 @@ export class OldCustomerService implements IOldCustomerService {
     const category = input.category?.toString().trim() || null;
     const paid = input.paid?.toString().trim();
 
+    if (category && EXCLUDED_OLD_CUSTOMER_CATEGORIES.has(category)) return null;
     if (paid !== "1") return null;
 
     if (!this.snapshotService.isAllowedServiceName(category, input.namaService)) {
