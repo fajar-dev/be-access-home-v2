@@ -1,12 +1,11 @@
 import type { Context } from "hono";
-import { BadRequestException } from "../exception/http.exception";
+import { BadRequestException, NotFoundException } from "../exception/http.exception";
 import { successResponse } from "../helper/api-response.helper";
 import { resolvePeriodFromQuery } from "../helper/period-query.helper";
 import { getDateRangeForPeriod, toSqlDate } from "../helper/period.helper";
 import type { CommissionService } from "../service/commission.service";
 import type { IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
-import { DEFAULT_SALES_TARGET, type ITargetService, type SalesTargetItem } from "../interface/target.interface";
 
 /** Admin-only cross-employee views: every Account Manager/Manager/invoice/churn row for a period. */
 export class SummaryController {
@@ -14,7 +13,6 @@ export class SummaryController {
     private readonly commissionService: CommissionService,
     private readonly churnService: IChurnService,
     private readonly employeeService: IEmployeeService,
-    private readonly targetService: ITargetService,
   ) {}
 
   async sales(c: Context) {
@@ -68,28 +66,15 @@ export class SummaryController {
     return c.json(successResponse("Churn approval updated successfully"));
   }
 
-  /** Every Account Manager's New Achievement target for a period — defaults to DEFAULT_SALES_TARGET when never overridden. */
+  /**
+   * Every Account Manager registered for a period (has a status_period row —
+   * KOMISI.md 6.E) with their New Achievement target. Anyone not yet
+   * crawled for that period simply doesn't appear.
+   */
   async target(c: Context) {
     const period = resolvePeriodFromQuery(c);
     const { start, end } = getDateRangeForPeriod(period);
-
-    const employees = await this.employeeService.getAllSalesEmployees();
-    const employeeIds = employees.map((e) => e.employee_id);
-
-    const [targets, statuses] = await Promise.all([
-      this.targetService.getTargetsByEmployeeIds(employeeIds, period),
-      this.employeeService.getStatusesByPeriodAndIds(employeeIds, toSqlDate(start), toSqlDate(end)),
-    ]);
-    const statusByEmployeeId = new Map(statuses.map((s) => [s.employee_id, s.status]));
-
-    const data: SalesTargetItem[] = employees.map((e) => ({
-      employeeId: e.employee_id,
-      name: e.name,
-      photoProfile: e.photo_profile,
-      status: statusByEmployeeId.get(e.employee_id) ?? null,
-      target: targets.get(e.employee_id) ?? DEFAULT_SALES_TARGET,
-    }));
-
+    const data = await this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end));
     return c.json(successResponse("Sales target retrieved successfully", data));
   }
 
@@ -97,6 +82,7 @@ export class SummaryController {
   async updateTarget(c: Context) {
     const employeeId = c.req.param("id")!;
     const period = resolvePeriodFromQuery(c);
+    const { start, end } = getDateRangeForPeriod(period);
     const body = await c.req.json();
 
     const target = Number.parseInt(body.target, 10);
@@ -104,7 +90,16 @@ export class SummaryController {
       throw new BadRequestException("Parameter target must be a non-negative integer");
     }
 
-    await this.targetService.setTarget(employeeId, period, target);
+    const updated = await this.employeeService.updateTargetByPeriod(
+      employeeId,
+      toSqlDate(start),
+      toSqlDate(end),
+      target,
+    );
+    if (!updated) {
+      throw new NotFoundException("This employee isn't registered for that period yet");
+    }
+
     return c.json(successResponse("Sales target updated successfully"));
   }
 }

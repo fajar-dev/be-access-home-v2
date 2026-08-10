@@ -31,8 +31,7 @@ import type {
   SalesSummaryItem,
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
-import type { IEmployeeService } from "../interface/employee.interface";
-import { DEFAULT_SALES_TARGET, type ITargetService } from "../interface/target.interface";
+import { DEFAULT_SALES_TARGET, type IEmployeeService } from "../interface/employee.interface";
 import { CRO_PLACEHOLDER } from "./employee.service";
 
 function emptyStats(): CommissionStats {
@@ -92,7 +91,6 @@ export class CommissionService {
     private readonly snapshotRepository: ISnapshotReadRepository,
     private readonly churnService: IChurnService,
     private readonly employeeService: IEmployeeService,
-    private readonly targetService: ITargetService,
   ) {}
 
   /**
@@ -104,11 +102,12 @@ export class CommissionService {
     const startDate = toSqlDate(start);
     const endDate = toSqlDate(end);
 
-    const [rows, status, target] = await Promise.all([
+    const [rows, statusPeriod] = await Promise.all([
       this.churnService.getByEmployeeId(employeeId, startDate, endDate),
       this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
-      this.targetService.getTarget(employeeId, period),
     ]);
+    const status = statusPeriod?.status ?? null;
+    const target = statusPeriod?.target ?? DEFAULT_SALES_TARGET;
 
     return rows.map((churn) => {
       const { mrc, commission, commissionPercentage } = this.valueChurn(churn, status, target);
@@ -169,23 +168,24 @@ export class CommissionService {
     const team = await this.employeeService.getHierarchy(managerId, undefined, false, false);
     const teamIds = team.map((e) => e.employee_id);
 
-    const [statusRows, recurringRows, teamTargets, managerTarget] = await Promise.all([
+    const [statusRows, recurringRows, managerStatusPeriod] = await Promise.all([
       teamIds.length > 0
         ? this.employeeService.getStatusesByPeriodAndIds(teamIds, startDate, endDate)
         : Promise.resolve([]),
       this.snapshotRepository.findRecurringByManager(managerId, period),
-      this.targetService.getTargetsByEmployeeIds(teamIds, period),
-      this.targetService.getTarget(managerId, period),
+      this.employeeService.getStatusByPeriod(managerId, startDate, endDate),
     ]);
+    const managerTarget = managerStatusPeriod?.target ?? DEFAULT_SALES_TARGET;
 
     // KOMISI.md 6.E: members without a status_period record for this period
     // are skipped entirely — no target contribution, no commission, no row.
     const statusByEmployeeId = new Map(statusRows.map((s) => [s.employee_id, s.status]));
+    const targetByEmployeeId = new Map(statusRows.map((s) => [s.employee_id, s.target]));
     const coveredTeam = team.filter((e) => statusByEmployeeId.has(e.employee_id));
 
     const memberResults = await Promise.all(
       coveredTeam.map((e) =>
-        this.getSalesCommission(e.employee_id, period, undefined, teamTargets.get(e.employee_id)),
+        this.getSalesCommission(e.employee_id, period, undefined, targetByEmployeeId.get(e.employee_id)),
       ),
     );
 
@@ -195,7 +195,7 @@ export class CommissionService {
     const teamActivity = memberResults.reduce((sum, r) => sum + r.activityCount, 0);
     const permanentTargetSum = coveredTeam
       .filter((e) => statusByEmployeeId.get(e.employee_id) === "Permanent")
-      .reduce((sum, e) => sum + (teamTargets.get(e.employee_id) ?? DEFAULT_SALES_TARGET), 0);
+      .reduce((sum, e) => sum + (targetByEmployeeId.get(e.employee_id) ?? DEFAULT_SALES_TARGET), 0);
 
     const performance = calculateManagerPerformance(
       permanentCount,
@@ -411,14 +411,13 @@ export class CommissionService {
     const startDate = toSqlDate(start);
     const endDate = toSqlDate(end);
 
-    const [allRows, churnRows, status, target] = await Promise.all([
+    const [allRows, churnRows, statusPeriod] = await Promise.all([
       this.snapshotRepository.findBySales(employeeId, period),
       this.churnService.getByEmployeeId(employeeId, startDate, endDate),
       this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
-      targetOverride !== undefined
-        ? Promise.resolve(targetOverride)
-        : this.targetService.getTarget(employeeId, period),
     ]);
+    const status = statusPeriod?.status ?? null;
+    const target = targetOverride ?? statusPeriod?.target ?? DEFAULT_SALES_TARGET;
 
     const rows = allRows.filter((row) => !isExcludedFromCommission(row));
 

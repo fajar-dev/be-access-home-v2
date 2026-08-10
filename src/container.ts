@@ -10,7 +10,6 @@ import { NewCustomerRepository } from "./repository/new-customer.repository";
 import { OldCustomerRepository } from "./repository/old-customer.repository";
 import { FeedbackRepository } from "./repository/feedback.repository";
 import { ChurnRepository } from "./repository/churn.repository";
-import { TargetRepository } from "./repository/target.repository";
 
 import { EmployeeService } from "./service/employee.service";
 import { SnapshotService } from "./service/snapshot.service";
@@ -22,7 +21,6 @@ import { AuthService } from "./service/auth.service";
 import { FeedbackService } from "./service/feedback.service";
 import { ChurnService } from "./service/churn.service";
 import { CommissionService } from "./service/commission.service";
-import { TargetService } from "./service/target.service";
 
 import { HealthController } from "./controller/health.controller";
 import { EmployeeController } from "./controller/employee.controller";
@@ -58,7 +56,6 @@ class Container {
   readonly nusaworkClient = new NusaworkClient();
   readonly feedbackRepository = new FeedbackRepository();
   readonly churnRepository = new ChurnRepository(this.billingDatabase, this.appDatabase);
-  readonly targetRepository = new TargetRepository(this.appDatabase);
 
   // Services
   readonly employeeService = new EmployeeService(this.employeeRepository);
@@ -80,12 +77,10 @@ class Container {
   readonly authService = new AuthService();
   readonly feedbackService = new FeedbackService(this.feedbackRepository);
   readonly churnService = new ChurnService(this.churnRepository);
-  readonly targetService = new TargetService(this.targetRepository);
   readonly commissionService = new CommissionService(
     this.snapshotRepository,
     this.churnService,
     this.employeeService,
-    this.targetService,
   );
 
   // Controllers
@@ -98,7 +93,6 @@ class Container {
     this.commissionService,
     this.churnService,
     this.employeeService,
-    this.targetService,
   );
 
   /** Closes every open DB connection pool — call before a job/process exits. */
