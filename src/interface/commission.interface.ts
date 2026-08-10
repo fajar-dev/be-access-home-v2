@@ -165,6 +165,7 @@ export type ManagerCommissionResult = {
     recurringCommission: number;
     newSubscription: number;
     newMrc: number;
+    recurringSubscription: number;
     /** Same totals, split out per service group (Home/Nusafiber/NusaSelecta). */
     byServiceGroup: Record<
       "Home" | "Nusafiber" | "NusaSelecta",
@@ -189,4 +190,47 @@ export type ManagerCommissionResult = {
   /** personal.total.commission + personal.bonus + override.newCommission + override.recurringCommission. */
   totalCommission: number;
   members: ManagerTeamMember[];
+};
+
+/** One row of the admin "all Account Managers" summary table. */
+export type SalesSummaryItem = {
+  employeeId: string;
+  name: string;
+  photoProfile: string;
+  status: string | null;
+  achievementStatus: string;
+  activityCount: number;
+  newMrc: number;
+  newSubscription: number;
+  newCommission: number;
+  recurringSubscription: number;
+  recurringCommission: number;
+  otherSubscription: number;
+  otherCommission: number;
+  bonus: number;
+  totalCommission: number;
+};
+
+/** One row of the admin "all Sales Managers" summary table. */
+export type ManagerSummaryItem = {
+  employeeId: string;
+  name: string;
+  photoProfile: string;
+  totalCount: number;
+  achievementPercentage: number;
+  activityCount: number;
+  isTargetAchieved: boolean;
+  newMrc: number;
+  newSubscription: number;
+  newCommission: number;
+  recurringSubscription: number;
+  recurringCommission: number;
+  managerNewCommission: number;
+  managerRecurringCommission: number;
+  managerTotalCommission: number;
+};
+
+/** One row of the admin "all invoices" table — a line item plus who sold it. */
+export type InvoiceSummaryItem = CommissionLineItem & {
+  sales: { employeeId: string; name: string; photoProfile: string } | null;
 };

@@ -23,9 +23,12 @@ import type {
   CommissionLineItem,
   CommissionSnapshotRow,
   CommissionStats,
+  InvoiceSummaryItem,
   ISnapshotReadRepository,
   ManagerCommissionResult,
+  ManagerSummaryItem,
   SalesCommissionResult,
+  SalesSummaryItem,
 } from "../interface/commission.interface";
 import type { ChurnRow, IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
@@ -213,6 +216,7 @@ export class CommissionService {
       recurringCommission: 0,
       newSubscription: 0,
       newMrc: 0,
+      recurringSubscription: 0,
       byServiceGroup: {
         Home: emptyGroupTotal(),
         Nusafiber: emptyGroupTotal(),
@@ -224,6 +228,7 @@ export class CommissionService {
       teamTotals.recurringCommission += r.breakdown.recurring.commission;
       teamTotals.newSubscription += r.breakdown.new.subscription;
       teamTotals.newMrc += r.breakdown.new.mrc;
+      teamTotals.recurringSubscription += r.breakdown.recurring.subscription;
 
       for (const group of serviceGroups) {
         const g = r.byServiceGroup[group];
@@ -620,5 +625,95 @@ export class CommissionService {
     }
 
     return deduction;
+  }
+
+  /** Every Account Manager's commission summary for a period — the admin sales roster. */
+  async getSalesSummary(period: string): Promise<SalesSummaryItem[]> {
+    const employees = await this.employeeService.getAllSalesEmployees();
+    const results = await Promise.all(
+      employees.map((e) => this.getSalesCommission(e.employee_id, period)),
+    );
+
+    return employees.map((e, i) => {
+      const r = results[i]!;
+      return {
+        employeeId: e.employee_id,
+        name: e.name,
+        photoProfile: e.photo_profile,
+        status: r.status,
+        achievementStatus: r.achievementStatus,
+        activityCount: r.activityCount,
+        newMrc: r.breakdown.new.mrc,
+        newSubscription: r.breakdown.new.subscription,
+        newCommission: r.breakdown.new.commission,
+        recurringSubscription: r.breakdown.recurring.subscription,
+        recurringCommission: r.breakdown.recurring.commission,
+        otherSubscription: r.breakdown.alat.subscription + r.breakdown.setup.subscription,
+        otherCommission: r.breakdown.alat.commission + r.breakdown.setup.commission,
+        bonus: r.bonus,
+        totalCommission: r.total.commission + r.bonus,
+      };
+    });
+  }
+
+  /** Every manager's commission summary for a period — the admin manager roster. */
+  async getManagerSummary(period: string): Promise<ManagerSummaryItem[]> {
+    const managers = await this.employeeService.getAllManagerEmployees();
+    const results = await Promise.all(
+      managers.map((m) => this.getManagerCommission(m.employee_id, period)),
+    );
+
+    return managers.map((m, i) => {
+      const r = results[i]!;
+      return {
+        employeeId: m.employee_id,
+        name: m.name,
+        photoProfile: m.photo_profile,
+        totalCount: r.team.totalCount,
+        achievementPercentage: r.team.achievementPercentage,
+        activityCount: r.team.activityCount,
+        isTargetAchieved: r.team.isTargetAchieved,
+        newMrc: r.teamTotals.newMrc,
+        newSubscription: r.teamTotals.newSubscription,
+        newCommission: r.teamTotals.newCommission,
+        recurringSubscription: r.teamTotals.recurringSubscription,
+        recurringCommission: r.teamTotals.recurringCommission,
+        managerNewCommission: r.override.newCommission,
+        managerRecurringCommission: r.override.recurringCommission,
+        managerTotalCommission: r.totalCommission,
+      };
+    });
+  }
+
+  /** Every invoice line item across every Account Manager for a period — the admin invoice roster. */
+  async getInvoiceSummary(period: string): Promise<InvoiceSummaryItem[]> {
+    const employees = await this.employeeService.getAllSalesEmployees();
+    const results = await Promise.all(
+      employees.map((e) => this.getSalesCommission(e.employee_id, period)),
+    );
+
+    const items: InvoiceSummaryItem[] = [];
+    employees.forEach((e, i) => {
+      const sales = { employeeId: e.employee_id, name: e.name, photoProfile: e.photo_profile };
+      for (const item of results[i]!.items) {
+        items.push({ ...item, sales });
+      }
+    });
+
+    return items;
+  }
+
+  /** Admin approval for a late-paid invoice, waiving its late-payment penalty. */
+  approveInvoice(aiInvoice: number, isApproved: boolean): Promise<void> {
+    return this.snapshotRepository.updateApproval(aiInvoice, isApproved);
+  }
+
+  /** Admin edit of a referral fee/type on one invoice row. */
+  updateInvoiceReferral(
+    aiInvoice: number,
+    referralFee: number,
+    referralType: string | null,
+  ): Promise<void> {
+    return this.snapshotRepository.updateReferral(aiInvoice, referralFee, referralType);
   }
 }
