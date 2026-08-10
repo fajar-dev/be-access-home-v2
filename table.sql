@@ -25,7 +25,19 @@ CREATE TABLE snapshots(
     referral_name VARCHAR(255) NULL,
     business_operation ENUM('Internal', 'Resell') NULL DEFAULT NULL,
     is_approved BOOLEAN NOT NULL DEFAULT FALSE,
+    is_adjusted BOOLEAN NOT NULL DEFAULT FALSE,
     INDEX idx_snapshots_period (period)
+);
+
+CREATE TABLE snapshot_adjustment (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ai_invoice BIGINT NOT NULL,
+    employee_id VARCHAR(20) NOT NULL,
+    old_value JSON NOT NULL,
+    new_value JSON NOT NULL,
+    note TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_snapshot_adjustment_ai_invoice (ai_invoice)
 );
 
 CREATE TABLE employee (

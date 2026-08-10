@@ -1,4 +1,5 @@
 import type { SnapshotType } from "../helper/commission.helper";
+import type { AdjustableSnapshotFields, SnapshotAdjustmentRow } from "./adjustment.interface";
 
 /** A snapshots row as the commission engine consumes it. */
 export type CommissionSnapshotRow = {
@@ -15,6 +16,7 @@ export type CommissionSnapshotRow = {
   category: string | null;
   sales: string | null;
   manager: string | null;
+  vendor?: string | null;
   subscription: number | null;
   line_rental: number | null;
   paid_date: Date | string | null;
@@ -26,6 +28,7 @@ export type CommissionSnapshotRow = {
   referral_name: string | null;
   business_operation: string | null;
   is_approved: number | boolean;
+  is_adjusted?: number | boolean;
 };
 
 export interface ISnapshotReadRepository {
@@ -39,6 +42,21 @@ export interface ISnapshotReadRepository {
   updateApproval(aiInvoice: number, isApproved: boolean): Promise<void>;
   /** Admin edit of a referral fee/type on one invoice row. */
   updateReferral(aiInvoice: number, referralFee: number, referralType: string | null): Promise<void>;
+  /** Raw row for one invoice, for building the adjustment form's current values and the audit log's "before" snapshot. */
+  findByAiInvoice(aiInvoice: number): Promise<CommissionSnapshotRow | null>;
+  /**
+   * Applies an admin field correction and flags the row `is_adjusted` so a
+   * future re-crawl (replaceForPeriod) never overwrites it.
+   */
+  updateAdjustableFields(aiInvoice: number, fields: AdjustableSnapshotFields): Promise<void>;
+  insertAdjustmentLog(
+    aiInvoice: number,
+    employeeId: string,
+    oldValue: Partial<AdjustableSnapshotFields>,
+    newValue: Partial<AdjustableSnapshotFields>,
+    note: string,
+  ): Promise<void>;
+  findAdjustmentsByAiInvoice(aiInvoice: number): Promise<SnapshotAdjustmentRow[]>;
 }
 
 export type CommissionStats = {
@@ -66,6 +84,7 @@ export type CommissionLineItem = {
   month: number;
   lateMonth: number;
   isApproved: boolean;
+  isAdjusted: boolean;
   paidDate: string | null;
   subscription: number;
   mrc: number;
