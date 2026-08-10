@@ -4,6 +4,8 @@ import type {
   EmployeeRow,
   EmployeeUpsertInput,
   IEmployeeRepository,
+  SalesTargetItem,
+  StatusPeriodDetail,
   StatusPeriodRow,
 } from "../interface/employee.interface";
 
@@ -119,13 +121,13 @@ export class EmployeeRepository implements IEmployeeRepository {
     employeeId: string,
     startDate: string,
     endDate: string,
-  ): Promise<string | null> {
-    const rows = await this.db.query<{ status: string }[]>(
-      `SELECT status FROM status_period
+  ): Promise<StatusPeriodDetail | null> {
+    const rows = await this.db.query<StatusPeriodDetail[]>(
+      `SELECT status, target FROM status_period
        WHERE employee_id = ? AND start_date = ? AND end_date = ? LIMIT 1`,
       [employeeId, startDate, endDate],
     );
-    return rows[0]?.status ?? null;
+    return rows[0] ?? null;
   }
 
   findStatusesByPeriodAndIds(
@@ -135,9 +137,35 @@ export class EmployeeRepository implements IEmployeeRepository {
   ): Promise<StatusPeriodRow[]> {
     if (employeeIds.length === 0) return Promise.resolve([]);
     return this.db.query<StatusPeriodRow[]>(
-      `SELECT employee_id, status, start_date, end_date FROM status_period
+      `SELECT employee_id, status, target, start_date, end_date FROM status_period
        WHERE employee_id IN (?) AND start_date = ? AND end_date = ?`,
       [employeeIds, startDate, endDate],
+    );
+  }
+
+  async updateTargetByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    target: number,
+  ): Promise<boolean> {
+    const result = await this.db.query<{ affectedRows: number }>(
+      `UPDATE status_period SET target = ? WHERE employee_id = ? AND start_date = ? AND end_date = ?`,
+      [target, employeeId, startDate, endDate],
+    );
+    return result.affectedRows > 0;
+  }
+
+  findSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]> {
+    return this.db.query<SalesTargetItem[]>(
+      `SELECT e.employee_id AS employeeId, e.name, e.photo_profile AS photoProfile,
+              sp.status, sp.target
+       FROM status_period sp
+       JOIN employee e ON e.employee_id = sp.employee_id
+       WHERE sp.start_date = ? AND sp.end_date = ?
+         AND e.job_level = 'Staff' AND e.job_position = 'Account Manager'
+       ORDER BY e.name ASC`,
+      [startDate, endDate],
     );
   }
 

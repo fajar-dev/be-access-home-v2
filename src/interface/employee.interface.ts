@@ -25,11 +25,30 @@ export type EmployeeDetail = {
   managerPhotoProfile?: string | null;
 };
 
+/** Minimum monthly New Achievement expected from one Permanent sales, unless overridden per employee/period. */
+export const DEFAULT_SALES_TARGET = 12;
+
 export type StatusPeriodRow = {
   employee_id: string;
   status: string;
+  /** This employee's New Achievement target for the period (admin-configurable, default DEFAULT_SALES_TARGET). */
+  target: number;
   start_date: Date | string;
   end_date: Date | string;
+};
+
+export type StatusPeriodDetail = {
+  status: string;
+  target: number;
+};
+
+/** One row of the admin "manage sales target" table — only sales with a status_period record for the period appear (KOMISI.md 6.E: no record means not registered for that period). */
+export type SalesTargetItem = {
+  employeeId: string;
+  name: string;
+  photoProfile: string;
+  status: string;
+  target: number;
 };
 
 export type EmployeeUpsertInput = {
@@ -64,12 +83,25 @@ export interface IEmployeeRepository {
     employeeId: string,
     startDate: string,
     endDate: string,
-  ): Promise<string | null>;
+  ): Promise<StatusPeriodDetail | null>;
   findStatusesByPeriodAndIds(
     employeeIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<StatusPeriodRow[]>;
+  /**
+   * Admin override of one employee's target for a period. Returns false
+   * (no-op) when there's no status_period row to attach it to — that
+   * employee isn't registered for that period yet (KOMISI.md 6.E).
+   */
+  updateTargetByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    target: number,
+  ): Promise<boolean>;
+  /** Every Account Manager registered (has a status_period row) for a period — the admin target-management roster. */
+  findSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]>;
   /**
    * Recursive-CTE lookup: the employee's own reporting chain (isSelf=true)
    * or their direct team (isSelf=false), filtered to has_dashboard rows.
@@ -116,17 +148,24 @@ export interface IEmployeeService {
   ): Promise<void>;
   getAllEmployeeIds(): Promise<string[]>;
   deactivateEmployee(employeeId: string): Promise<void>;
-  /** Employment status recorded for that exact commission period, or null if never crawled. */
+  /** Employment status + target recorded for that exact commission period, or null if never crawled. */
   getStatusByPeriod(
     employeeId: string,
     startDate: string,
     endDate: string,
-  ): Promise<string | null>;
+  ): Promise<StatusPeriodDetail | null>;
   getStatusesByPeriodAndIds(
     employeeIds: string[],
     startDate: string,
     endDate: string,
   ): Promise<StatusPeriodRow[]>;
+  updateTargetByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    target: number,
+  ): Promise<boolean>;
+  getSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]>;
   findByEmployeeId(employeeId: string): Promise<EmployeeDetail | null>;
   findByEmail(email: string): Promise<EmployeeDetail | null>;
   getHierarchy(

@@ -50,7 +50,8 @@ CREATE TABLE status_period (
     employee_id VARCHAR(20) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status ENUM('Probation', 'Permanent') NOT NULL DEFAULT 'Probation'
+    status ENUM('Probation', 'Permanent') NOT NULL DEFAULT 'Probation',
+    target INT NOT NULL DEFAULT 12
 );
 
 CREATE TABLE churn (
@@ -70,12 +71,4 @@ CREATE TABLE churn (
     is_approved BOOLEAN NOT NULL DEFAULT FALSE,
     INDEX idx_churn_unregistration_date (unregistration_date),
     INDEX idx_churn_sales_id (sales_id)
-);
-
-CREATE TABLE sales_target (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    employee_id VARCHAR(20) NOT NULL,
-    period VARCHAR(6) NOT NULL,
-    target INT NOT NULL DEFAULT 12,
-    UNIQUE KEY uniq_sales_target_employee_period (employee_id, period)
 );

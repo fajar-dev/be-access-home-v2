@@ -4,6 +4,8 @@ import type {
   IEmployeeRepository,
   IEmployeeService,
   SalesResolution,
+  SalesTargetItem,
+  StatusPeriodDetail,
   StatusPeriodRow,
 } from "../interface/employee.interface";
 
@@ -80,7 +82,7 @@ export class EmployeeService implements IEmployeeService {
     employeeId: string,
     startDate: string,
     endDate: string,
-  ): Promise<string | null> {
+  ): Promise<StatusPeriodDetail | null> {
     return this.employeeRepository.findStatusByPeriod(employeeId, startDate, endDate);
   }
 
@@ -90,6 +92,19 @@ export class EmployeeService implements IEmployeeService {
     endDate: string,
   ): Promise<StatusPeriodRow[]> {
     return this.employeeRepository.findStatusesByPeriodAndIds(employeeIds, startDate, endDate);
+  }
+
+  updateTargetByPeriod(
+    employeeId: string,
+    startDate: string,
+    endDate: string,
+    target: number,
+  ): Promise<boolean> {
+    return this.employeeRepository.updateTargetByPeriod(employeeId, startDate, endDate, target);
+  }
+
+  getSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]> {
+    return this.employeeRepository.findSalesTargetsByPeriod(startDate, endDate);
   }
 
   deactivateEmployee(employeeId: string): Promise<void> {
