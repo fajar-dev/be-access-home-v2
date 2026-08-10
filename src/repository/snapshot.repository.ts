@@ -4,6 +4,11 @@ import type {
   CommissionSnapshotRow,
   ISnapshotReadRepository,
 } from "../interface/commission.interface";
+import {
+  ADJUSTABLE_FIELD_COLUMNS,
+  type AdjustableSnapshotFields,
+  type SnapshotAdjustmentRow,
+} from "../interface/adjustment.interface";
 
 const SNAPSHOT_COLUMNS = `
   period, ai_invoice, ai_receipt, customer_id, customer_name, customer_company,
@@ -11,6 +16,9 @@ const SNAPSHOT_COLUMNS = `
   sales, manager, vendor, subscription, line_rental, paid_date, month,
   late_month, type, referral_fee, referral_name, business_operation
 `;
+
+/** Index of `ai_invoice` in the positional row tuples INSERTed via SNAPSHOT_COLUMNS above. */
+const AI_INVOICE_COLUMN_INDEX = 1;
 
 export class SnapshotRepository implements ISnapshotRepository, ISnapshotReadRepository {
   constructor(private readonly db: AppDatabase) {}
@@ -71,6 +79,49 @@ export class SnapshotRepository implements ISnapshotRepository, ISnapshotReadRep
     );
   }
 
+  async findByAiInvoice(aiInvoice: number): Promise<CommissionSnapshotRow | null> {
+    const rows = await this.db.query<CommissionSnapshotRow[]>(
+      `SELECT * FROM snapshots WHERE ai_invoice = ? LIMIT 1`,
+      [aiInvoice],
+    );
+    return rows[0] ?? null;
+  }
+
+  async updateAdjustableFields(aiInvoice: number, fields: AdjustableSnapshotFields): Promise<void> {
+    const entries = (Object.keys(fields) as (keyof AdjustableSnapshotFields)[]).filter(
+      (key) => ADJUSTABLE_FIELD_COLUMNS[key] !== undefined,
+    );
+    if (entries.length === 0) return;
+
+    const setClause = entries.map((key) => `${ADJUSTABLE_FIELD_COLUMNS[key]} = ?`).join(", ");
+    const values = entries.map((key) => fields[key] ?? null);
+
+    await this.db.query(
+      `UPDATE snapshots SET ${setClause}, is_adjusted = TRUE WHERE ai_invoice = ?`,
+      [...values, aiInvoice],
+    );
+  }
+
+  async insertAdjustmentLog(
+    aiInvoice: number,
+    employeeId: string,
+    oldValue: Partial<AdjustableSnapshotFields>,
+    newValue: Partial<AdjustableSnapshotFields>,
+    note: string,
+  ): Promise<void> {
+    await this.db.query(
+      `INSERT INTO snapshot_adjustment (ai_invoice, employee_id, old_value, new_value, note) VALUES (?, ?, ?, ?, ?)`,
+      [aiInvoice, employeeId, JSON.stringify(oldValue), JSON.stringify(newValue), note],
+    );
+  }
+
+  findAdjustmentsByAiInvoice(aiInvoice: number): Promise<SnapshotAdjustmentRow[]> {
+    return this.db.query<SnapshotAdjustmentRow[]>(
+      `SELECT * FROM snapshot_adjustment WHERE ai_invoice = ? ORDER BY created_at DESC`,
+      [aiInvoice],
+    );
+  }
+
   /**
    * Replaces every snapshots row for `period` whose `type` is in `types`
    * with `rows`, inside one transaction — so a re-run swaps that slice of
@@ -79,6 +130,12 @@ export class SnapshotRepository implements ISnapshotRepository, ISnapshotReadRep
    * sessions). Scoping the delete by `type` keeps this job's re-run from
    * wiping out rows a different job (e.g. old-customer vs new-customer)
    * wrote for the same period.
+   *
+   * Rows flagged `is_adjusted` (an admin has manually corrected them) are
+   * frozen: never deleted, and any freshly-crawled row for the same
+   * ai_invoice is dropped rather than inserted alongside it — otherwise
+   * the invoice would be double-counted once as the adjusted row and once
+   * as the freshly re-crawled one.
    */
   async replaceForPeriod(
     period: string,
@@ -86,15 +143,25 @@ export class SnapshotRepository implements ISnapshotRepository, ISnapshotReadRep
     types: string[],
   ): Promise<void> {
     await this.db.withTransaction(async (txQuery) => {
-      await txQuery("DELETE FROM snapshots WHERE period = ? AND type IN (?)", [
+      const adjustedRows = await txQuery<{ ai_invoice: number }[]>(
+        "SELECT ai_invoice FROM snapshots WHERE period = ? AND type IN (?) AND is_adjusted = TRUE",
+        [period, types],
+      );
+      const adjustedAiInvoices = new Set(adjustedRows.map((r) => r.ai_invoice));
+
+      await txQuery("DELETE FROM snapshots WHERE period = ? AND type IN (?) AND is_adjusted = FALSE", [
         period,
         types,
       ]);
 
-      if (rows.length > 0) {
+      const freshRows = adjustedAiInvoices.size > 0
+        ? rows.filter((row) => !adjustedAiInvoices.has(row[AI_INVOICE_COLUMN_INDEX]))
+        : rows;
+
+      if (freshRows.length > 0) {
         await txQuery(
           `INSERT INTO snapshots (${SNAPSHOT_COLUMNS}) VALUES ?`,
-          [rows],
+          [freshRows],
         );
       }
     });
