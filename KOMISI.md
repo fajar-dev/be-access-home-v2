@@ -2,6 +2,8 @@
 
 Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
 
+> **⚠️ Target Aktivitas kini dapat dikonfigurasi per Account Manager per periode** (menu admin *Summary > Target*), dengan default **12** bila belum pernah diatur (`DEFAULT_SALES_TARGET`). Target inilah yang dipakai untuk rate recurring (2.A) dan performance penalty (1.2), serta ikut membentuk Target Dasar Tim seorang manager (6.A). **Tier badge Achievement (Bagian 5.A: Capai target Bonus/Capai target/SP1) TIDAK ikut berubah** — tetap memakai angka tetap 15/12/3 berapa pun target aktivitas seorang Account Manager diatur.
+
 ## Aturan dan Perhitungan Komisi Sales & Manager
 
 ### 1. Dasar Pengenaan Komisi & Penalti (Base Commission)
@@ -14,7 +16,7 @@ Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
      - **Pengecualian**: Penalti ini **TIDAK BERLAKU** jika invoice ditandai sebagai disetujui (`is_approved == true`) di database.
   2. **Performance Penalty (Gagal Target Aktivitas)**:
      - Berlaku khusus untuk pegawai berstatus **Permanent** pada layanan tipe **New** (Pemasangan Baru).
-     - Jika New Achievement < 12, maka dikenakan penalti sebesar **70%** (Sales hanya mendapatkan komisi dari 30% Dasar Komisi).
+     - Jika New Achievement < Target Aktivitas Sales tersebut (default **12**, bisa diatur admin per periode), maka dikenakan penalti sebesar **70%** (Sales hanya mendapatkan komisi dari 30% Dasar Komisi).
      - **Pengecualian**: Produk tipe **Prorate**, **Upgrade**, dan **Recurring** dibebaskan dari penalti performa ini (langsung mengambil Dasar Komisi tanpa potongan 70%).
 - **Base Commission (Dasar Komisi Akhir)**: Dihitung dengan rumus:
   `Base Commission = Commission Basis * (1 - Total Persentase Penalti)`.
@@ -27,8 +29,8 @@ Dokumen ini fokus pada **aturan bisnis perhitungan komisi**.
 
 Rate recurring **tidak dibedakan per kategori layanan**: berlaku sama untuk Home, FO, FO Prepaid, Wireless, Starlink, CPE Rental, Cicilan, dan lainnya.
 
-- **1.5%**: Sales berstatus **Probation**, ATAU Sales **Permanent** yang **capai target** (New Achievement >= 12).
-- **0.5%**: Sales berstatus **Permanent** yang **gagal target** (< 12).
+- **1.5%**: Sales berstatus **Probation**, ATAU Sales **Permanent** yang **capai target** (New Achievement >= Target Aktivitas sales tersebut, default 12).
+- **0.5%**: Sales berstatus **Permanent** yang **gagal target** (< Target Aktivitas sales tersebut).
 - Bebas dari penalti performa 70%.
 
 **Dua pengecualian:**
@@ -129,7 +131,7 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 
 - `price = (Subscription − Discount) / periode(bulan)`, minimal periode 1.
 - `MRC churn = price / periode`.
-- `Commission churn` dihitung memakai `calculateCommission` dengan asumsi kategori `home`, tipe `new`, dan `activityCount = 12` (dianggap capai target, tanpa penalti performa & tanpa late penalty).
+- `Commission churn` dihitung memakai `calculateCommission` dengan asumsi kategori `home`, tipe `new`, dan `activityCount` disamakan dengan Target Aktivitas sales tersebut (dianggap capai target, tanpa penalti performa & tanpa late penalty).
 
 ---
 
@@ -164,7 +166,7 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 **A. Target & Capaian Tim**
 
 - **Jumlah AM** = total seluruh anggota tim di bawah binaan manager, **termasuk yang Probation**. Angka ini hanya dipakai untuk menentukan Threshold di Bagian 6.B.
-- **Target Dasar Tim** = `Jumlah Pegawai Permanent x 12` (minimal aktivitas per sales Permanent adalah 12). Pegawai **Probation tidak menambah** target dasar.
+- **Target Dasar Tim** = jumlah Target Aktivitas masing-masing anggota **Permanent** di tim tersebut (default 12/orang, bisa diatur admin per sales per periode — lihat catatan di awal dokumen). Pegawai **Probation tidak menambah** target dasar.
 - **Target Akhir Manager** = `Target Dasar Tim x Threshold%`, **dibulatkan** ke bilangan bulat terdekat.
 - **Status Capai Target** = `Total New Achievement seluruh anggota tim >= Target Akhir Manager`. Status inilah yang dipakai untuk rate recurring (Bagian 6.D) dan komisi penjualan pribadi manager (Bagian 6.F).
 - **Persentase Capaian** = `(Total New Achievement Tim / Target Dasar Tim) x 100%`. Angka ini dipakai untuk tier komisi New di Bagian 6.C — perhatikan pembaginya adalah **Target Dasar**, bukan Target Akhir.
@@ -187,10 +189,10 @@ Semakin besar tim, semakin ringan persentase targetnya. Threshold dipilih berdas
 | 9         | 88%    |
 | >= 10     | 85%    |
 
-> **Contoh perhitungan:** Tim berisi **9 Permanent + 1 Probation**.
+> **Contoh perhitungan:** Tim berisi **9 Permanent + 1 Probation**, semua 9 Permanent memakai target default 12.
 >
 > 1. Jumlah AM = **10** → Threshold = **85%** (dari tabel).
-> 2. Target Dasar = `9 x 12` = **108** (probation tidak ikut dihitung).
+> 2. Target Dasar = `9 x 12` = **108** (probation tidak ikut dihitung; kalau salah satu member punya target custom, Target Dasar = jumlah target masing-masing, bukan lagi perkalian rata).
 > 3. Target Akhir = `108 x 85%` = `91.8` → dibulatkan menjadi **92**.
 >
 > Manager harus mengumpulkan **92 New Achievement** dari total timnya untuk dinyatakan **Capai Target**.
