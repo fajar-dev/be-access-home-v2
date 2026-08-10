@@ -100,7 +100,12 @@ export interface IEmployeeRepository {
     endDate: string,
     target: number,
   ): Promise<boolean>;
-  /** Every Account Manager registered (has a status_period row) for a period — the admin target-management roster. */
+  /**
+   * Every Account Manager registered (has a status_period row) for a
+   * period — the period-aware roster shared by the admin target/sales/invoice
+   * summary endpoints, so all three always agree on who counts for a given
+   * period regardless of current employment status (KOMISI.md 6.E).
+   */
   findSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]>;
   /**
    * Recursive-CTE lookup: the employee's own reporting chain (isSelf=true)
@@ -115,8 +120,6 @@ export interface IEmployeeRepository {
     isSelf: boolean,
     isActiveOnly: boolean,
   ): Promise<EmployeeDetail[]>;
-  /** Every active Account Manager (job_level='Staff', job_position='Account Manager') — the admin sales summary roster. */
-  findAllSalesEmployees(): Promise<EmployeeDetail[]>;
   /** Every active Manager/C-Level employee — the admin manager summary roster. */
   findAllManagerEmployees(): Promise<EmployeeDetail[]>;
 }
@@ -174,6 +177,5 @@ export interface IEmployeeService {
     isSelf?: boolean,
     isActiveOnly?: boolean,
   ): Promise<EmployeeDetail[]>;
-  getAllSalesEmployees(): Promise<EmployeeDetail[]>;
   getAllManagerEmployees(): Promise<EmployeeDetail[]>;
 }

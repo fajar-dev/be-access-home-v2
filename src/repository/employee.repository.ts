@@ -246,15 +246,6 @@ export class EmployeeRepository implements IEmployeeRepository {
     return this.db.query<EmployeeDetail[]>(query, params);
   }
 
-  findAllSalesEmployees(): Promise<EmployeeDetail[]> {
-    return this.db.query<EmployeeDetail[]>(
-      `SELECT * FROM employee
-       WHERE job_level = 'Staff' AND job_position = 'Account Manager'
-         AND has_dashboard = true AND is_active = true
-       ORDER BY name ASC`,
-    );
-  }
-
   findAllManagerEmployees(): Promise<EmployeeDetail[]> {
     return this.db.query<EmployeeDetail[]>(
       `SELECT * FROM employee

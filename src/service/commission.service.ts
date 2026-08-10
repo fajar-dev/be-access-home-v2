@@ -645,19 +645,28 @@ export class CommissionService {
     return deduction;
   }
 
-  /** Every Account Manager's commission summary for a period — the admin sales roster. */
+  /**
+   * Every Account Manager's commission summary for a period — the admin
+   * sales roster. Sourced from status_period (like the Target page), NOT
+   * the live employee table: a past period must show whoever actually sold
+   * that period, even if they've since left or been deactivated — matching
+   * KOMISI.md 6.E, which already governs the manager team-member roster the
+   * same way. Using the live roster here would silently drop them and
+   * disagree with their manager's team table for that same period.
+   */
   async getSalesSummary(period: string): Promise<SalesSummaryItem[]> {
-    const employees = await this.employeeService.getAllSalesEmployees();
+    const { start, end } = getDateRangeForPeriod(period);
+    const roster = await this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end));
     const results = await Promise.all(
-      employees.map((e) => this.getSalesCommission(e.employee_id, period)),
+      roster.map((e) => this.getSalesCommission(e.employeeId, period)),
     );
 
-    return employees.map((e, i) => {
+    return roster.map((e, i) => {
       const r = results[i]!;
       return {
-        employeeId: e.employee_id,
+        employeeId: e.employeeId,
         name: e.name,
-        photoProfile: e.photo_profile,
+        photoProfile: e.photoProfile,
         status: r.status,
         achievementStatus: r.achievementStatus,
         activityCount: r.activityCount,
@@ -703,16 +712,22 @@ export class CommissionService {
     });
   }
 
-  /** Every invoice line item across every Account Manager for a period — the admin invoice roster. */
+  /**
+   * Every invoice line item across every Account Manager for a period — the
+   * admin invoice roster. Same period-aware roster as getSalesSummary, for
+   * the same reason: a past period's invoices must stay attributed to
+   * whoever actually sold them, regardless of current employment status.
+   */
   async getInvoiceSummary(period: string): Promise<InvoiceSummaryItem[]> {
-    const employees = await this.employeeService.getAllSalesEmployees();
+    const { start, end } = getDateRangeForPeriod(period);
+    const roster = await this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end));
     const results = await Promise.all(
-      employees.map((e) => this.getSalesCommission(e.employee_id, period)),
+      roster.map((e) => this.getSalesCommission(e.employeeId, period)),
     );
 
     const items: InvoiceSummaryItem[] = [];
-    employees.forEach((e, i) => {
-      const sales = { employeeId: e.employee_id, name: e.name, photoProfile: e.photo_profile };
+    roster.forEach((e, i) => {
+      const sales = { employeeId: e.employeeId, name: e.name, photoProfile: e.photoProfile };
       for (const item of results[i]!.items) {
         items.push({ ...item, sales });
       }
