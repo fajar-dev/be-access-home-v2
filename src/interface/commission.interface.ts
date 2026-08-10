@@ -80,6 +80,8 @@ export type CommissionLineItem = {
   serviceName: string | null;
   category: string | null;
   businessOperation: string | null;
+  /** Employee ID of the Sales Manager credited for this row (raw snapshots.manager column). */
+  manager: string | null;
   type: string;
   month: number;
   lateMonth: number;
@@ -249,7 +251,8 @@ export type ManagerSummaryItem = {
   managerTotalCommission: number;
 };
 
-/** One row of the admin "all invoices" table — a line item plus who sold it. */
+/** One row of the admin "all invoices" table — a line item plus who sold it and their Sales Manager. */
 export type InvoiceSummaryItem = CommissionLineItem & {
   sales: { employeeId: string; name: string; photoProfile: string } | null;
+  managerEmployee: { employeeId: string; name: string; photoProfile: string } | null;
 };

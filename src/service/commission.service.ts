@@ -379,6 +379,7 @@ export class CommissionService {
       serviceName: row.service_name,
       category: row.category,
       businessOperation: row.business_operation,
+      manager: row.manager,
       type: "recurring",
       month: months,
       lateMonth: toNumber(row.late_month),
@@ -502,6 +503,7 @@ export class CommissionService {
         serviceName: row.service_name,
         category: row.category,
         businessOperation: row.business_operation,
+        manager: row.manager,
         type: bucket,
         month: months,
         lateMonth: toNumber(row.late_month),
@@ -729,7 +731,12 @@ export class CommissionService {
    */
   async getInvoiceSummary(period: string): Promise<InvoiceSummaryItem[]> {
     const { start, end } = getDateRangeForPeriod(period);
-    const roster = await this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end));
+    const [roster, managers] = await Promise.all([
+      this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end)),
+      this.employeeService.getAllManagerEmployees(),
+    ]);
+    const managerById = new Map(managers.map((m) => [m.employee_id, m]));
+
     const results = await Promise.all(
       roster.map((e) => this.getSalesCommission(e.employeeId, period)),
     );
@@ -738,7 +745,11 @@ export class CommissionService {
     roster.forEach((e, i) => {
       const sales = { employeeId: e.employeeId, name: e.name, photoProfile: e.photoProfile };
       for (const item of results[i]!.items) {
-        items.push({ ...item, sales });
+        const manager = managerById.get(item.manager ?? "");
+        const managerEmployee = manager
+          ? { employeeId: manager.employee_id, name: manager.name, photoProfile: manager.photo_profile }
+          : null;
+        items.push({ ...item, sales, managerEmployee });
       }
     });
 
