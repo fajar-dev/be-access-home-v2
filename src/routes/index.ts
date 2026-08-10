@@ -48,6 +48,15 @@ router.post("/summary/invoice/:ai/approve", authMiddleware, adminMiddleware, (c)
 router.put("/summary/invoice/:ai", authMiddleware, adminMiddleware, (c) =>
   container.summaryController.updateInvoiceReferral(c),
 );
+router.get("/summary/invoice/:ai", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.invoiceDetail(c),
+);
+router.put("/summary/invoice/:ai/adjust", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.adjustInvoice(c),
+);
+router.get("/summary/invoice/:ai/adjustments", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.invoiceAdjustments(c),
+);
 router.get("/summary/churn", authMiddleware, adminMiddleware, (c) => container.summaryController.churn(c));
 router.post("/summary/churn/:id/approve", authMiddleware, adminMiddleware, (c) =>
   container.summaryController.approveChurn(c),

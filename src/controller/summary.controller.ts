@@ -6,6 +6,7 @@ import { getDateRangeForPeriod, toSqlDate } from "../helper/period.helper";
 import type { CommissionService } from "../service/commission.service";
 import type { IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
+import { ADJUSTABLE_FIELD_COLUMNS, type AdjustableSnapshotFields } from "../interface/adjustment.interface";
 
 /** Admin-only cross-employee views: every Account Manager/Manager/invoice/churn row for a period. */
 export class SummaryController {
@@ -49,6 +50,47 @@ export class SummaryController {
       body.referralType ?? null,
     );
     return c.json(successResponse("Invoice referral updated successfully"));
+  }
+
+  /** Full raw invoice row for the admin adjustment form — every field, not just the summary list's subset. */
+  async invoiceDetail(c: Context) {
+    const aiInvoice = Number.parseInt(c.req.param("ai")!, 10);
+    const data = await this.commissionService.getInvoiceDetail(aiInvoice);
+    return c.json(successResponse("Invoice detail retrieved successfully", data));
+  }
+
+  /**
+   * Admin correction of one invoice row's underlying data (customer,
+   * service, financial, or attribution fields) — anything beyond what the
+   * dedicated approve/referral endpoints cover. Only keys present in the
+   * request body are changed; everything else on the row is left alone.
+   */
+  async adjustInvoice(c: Context) {
+    const aiInvoice = Number.parseInt(c.req.param("ai")!, 10);
+    const body = await c.req.json();
+    const user = c.get("user");
+
+    const note = typeof body.note === "string" ? body.note.trim() : "";
+    if (!note) {
+      throw new BadRequestException("Parameter note is required");
+    }
+
+    const changes: AdjustableSnapshotFields = {};
+    for (const key of Object.keys(ADJUSTABLE_FIELD_COLUMNS) as (keyof AdjustableSnapshotFields)[]) {
+      if (Object.prototype.hasOwnProperty.call(body, key)) {
+        (changes as Record<string, unknown>)[key] = body[key];
+      }
+    }
+
+    await this.commissionService.adjustInvoice(aiInvoice, user.sub, changes, note);
+    return c.json(successResponse("Invoice adjusted successfully"));
+  }
+
+  /** Before/after history of admin corrections made to one invoice row. */
+  async invoiceAdjustments(c: Context) {
+    const aiInvoice = Number.parseInt(c.req.param("ai")!, 10);
+    const data = await this.commissionService.getInvoiceAdjustments(aiInvoice);
+    return c.json(successResponse("Invoice adjustment history retrieved successfully", data));
   }
 
   async churn(c: Context) {
