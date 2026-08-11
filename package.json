@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "build": "bun build --minify --outfile dist/index.js --target bun index.ts",
     "dev": "bun run --hot index.ts",
     "invoice:new-customer": "bun run src/job/new-customer-sheet.ts",
     "invoice:new-customer:db": "bun run src/job/new-customer-db.ts",
