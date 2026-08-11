@@ -1,4 +1,4 @@
-import mysql from "mysql";
+import mysql from "mysql2/promise";
 import { billingDbConfig } from "../config/database.config";
 
 /**
@@ -12,18 +12,12 @@ export class BillingDatabase {
     this.pool = mysql.createPool(billingDbConfig);
   }
 
-  query<T = any>(sql: string, values?: any[]): Promise<T> {
-    return new Promise((resolve, reject) => {
-      this.pool.query(sql, values, (error, results) => {
-        if (error) return reject(error);
-        resolve(results as T);
-      });
-    });
+  async query<T = any>(sql: string, values?: any[]): Promise<T> {
+    const [results] = await this.pool.query(sql, values);
+    return results as T;
   }
 
-  close(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.pool.end((error) => (error ? reject(error) : resolve()));
-    });
+  async close(): Promise<void> {
+    await this.pool.end();
   }
 }
