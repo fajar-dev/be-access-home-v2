@@ -847,8 +847,8 @@ export class CommissionService {
   async getInvoiceAdjustments(aiInvoice: number): Promise<SnapshotAdjustmentItem[]> {
     const rows = await this.snapshotRepository.findAdjustmentsByAiInvoice(aiInvoice);
     const employeeIds = [...new Set(rows.map((r) => r.employee_id))];
-    const employees = await Promise.all(employeeIds.map((id) => this.employeeService.findByEmployeeId(id)));
-    const nameByEmployeeId = new Map(employeeIds.map((id, i) => [id, employees[i]?.name ?? null]));
+    const employees = await this.employeeService.findByEmployeeIds(employeeIds);
+    const nameByEmployeeId = new Map(employees.map((e) => [e.employee_id, e.name]));
 
     return rows.map((row) => ({
       id: row.id,

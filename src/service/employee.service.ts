@@ -115,6 +115,10 @@ export class EmployeeService implements IEmployeeService {
     return this.employeeRepository.findByEmployeeId(employeeId);
   }
 
+  findByEmployeeIds(employeeIds: string[]): Promise<EmployeeDetail[]> {
+    return this.employeeRepository.findByEmployeeIds(employeeIds);
+  }
+
   findByEmail(email: string): Promise<EmployeeDetail | null> {
     return this.employeeRepository.findByEmail(email);
   }

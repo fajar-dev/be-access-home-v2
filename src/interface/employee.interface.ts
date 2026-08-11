@@ -70,6 +70,8 @@ export interface IEmployeeRepository {
   findAll(): Promise<EmployeeRow[]>;
   upsertEmployee(data: EmployeeUpsertInput): Promise<void>;
   findByEmployeeId(employeeId: string): Promise<EmployeeDetail | null>;
+  /** Bulk lookup — one query instead of N concurrent single-row ones (those can desync the mysql pool under load). */
+  findByEmployeeIds(employeeIds: string[]): Promise<EmployeeDetail[]>;
   findByEmail(email: string): Promise<EmployeeDetail | null>;
   findAllEmployeeIds(): Promise<string[]>;
   updateActiveStatus(employeeId: string, isActive: boolean): Promise<void>;
@@ -170,6 +172,7 @@ export interface IEmployeeService {
   ): Promise<boolean>;
   getSalesTargetsByPeriod(startDate: string, endDate: string): Promise<SalesTargetItem[]>;
   findByEmployeeId(employeeId: string): Promise<EmployeeDetail | null>;
+  findByEmployeeIds(employeeIds: string[]): Promise<EmployeeDetail[]>;
   findByEmail(email: string): Promise<EmployeeDetail | null>;
   getHierarchy(
     employeeId: string,

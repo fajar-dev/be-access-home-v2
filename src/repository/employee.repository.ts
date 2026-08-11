@@ -71,6 +71,14 @@ export class EmployeeRepository implements IEmployeeRepository {
     return rows[0] ?? null;
   }
 
+  findByEmployeeIds(employeeIds: string[]): Promise<EmployeeDetail[]> {
+    if (employeeIds.length === 0) return Promise.resolve([]);
+    return this.db.query<EmployeeDetail[]>(
+      `SELECT * FROM employee WHERE employee_id IN (?)`,
+      [employeeIds],
+    );
+  }
+
   async findByEmail(email: string): Promise<EmployeeDetail | null> {
     const rows = await this.db.query<EmployeeDetail[]>(
       `SELECT * FROM employee WHERE email = ? LIMIT 1`,
