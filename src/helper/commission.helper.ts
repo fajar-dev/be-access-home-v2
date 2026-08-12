@@ -11,6 +11,15 @@ export type SnapshotType = "new" | "upgrade" | "prorate" | "recurring";
 /** Grouping used for the per-service breakdown in dashboards. */
 export type ServiceGroupLabel = "Home" | "Nusafiber" | "NusaSelecta";
 
+/**
+ * Recurring-only grouping (KOMISI.md 3): same three product-family groups,
+ * plus Digital Business (own category) and Access Business (catch-all for
+ * everything else — FO, Wireless, IP Public, Starlink, CPE Rental, Cicilan,
+ * ...). Deliberately recurring-scoped only — New/Upgrade/Prorate keep using
+ * the plain 3-way ServiceGroupLabel above, unaffected.
+ */
+export type RecurringServiceGroupLabel = ServiceGroupLabel | "Digital Business" | "Access Business";
+
 const NUSAFIBER_SERVICE_IDS = new Set(["BFLITE"]);
 const NUSA_BASIC_PRIME_IDS = new Set(["NFSP030", "NFSP100"]);
 const NUSA_ULTRA_IDS = new Set(["NFSP200"]);
@@ -74,6 +83,25 @@ export function getServiceGroupLabel(serviceId: string | null | undefined): Serv
   if (NUSAFIBER_SERVICE_IDS.has(code)) return "Nusafiber";
   if (NUSA_BASIC_PRIME_IDS.has(code) || NUSA_ULTRA_IDS.has(code)) return "NusaSelecta";
   return "Home";
+}
+
+/**
+ * Same product-family grouping as getServiceGroupLabel, but carves
+ * Digital Business out by category and "Home" down to just the services
+ * with a configured commission rate — everything else (no configured rate,
+ * i.e. FO/Wireless/IP Public/etc.) becomes "Access Business" instead of
+ * silently landing in "Home". Only meant for recurring rows.
+ */
+export function getRecurringServiceGroupLabel(
+  category: string | null | undefined,
+  serviceId: string | null | undefined,
+): RecurringServiceGroupLabel {
+  if (toCommissionCategory(category) === "digital-business") return "Digital Business";
+
+  const code = serviceId?.toUpperCase() ?? "";
+  if (NUSAFIBER_SERVICE_IDS.has(code)) return "Nusafiber";
+  if (NUSA_BASIC_PRIME_IDS.has(code) || NUSA_ULTRA_IDS.has(code)) return "NusaSelecta";
+  return hasCommissionRate(serviceId) ? "Home" : "Access Business";
 }
 
 export function isNusaBasicPrime(serviceId: string | null | undefined): boolean {

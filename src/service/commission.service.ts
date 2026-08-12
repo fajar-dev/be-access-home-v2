@@ -8,6 +8,7 @@ import {
   getCommissionBasis,
   getManagerNewCommissionRate,
   getManagerRecurringRate,
+  getRecurringServiceGroupLabel,
   getServiceGroupLabel,
   hasCommissionRate,
   isNusaBasicPrime,
@@ -220,7 +221,13 @@ export class CommissionService {
       managerTarget,
     );
 
+    // Kept 3-way — only used below for each member's "New Service" display,
+    // which stays unaffected by the Digital Business/Access Business split.
     const serviceGroups = ["Home", "Nusafiber", "NusaSelecta"] as const;
+    // teamTotals.byServiceGroup covers recurring too, so it needs the full
+    // 5-way grouping; the two new groups' new* fields just stay at 0 since
+    // getRecurringServiceGroupLabel is never used for the "new" bucket.
+    const teamServiceGroups = ["Home", "Nusafiber", "NusaSelecta", "Digital Business", "Access Business"] as const;
     const emptyGroupTotal = () => ({
       newCount: 0,
       newSubscription: 0,
@@ -240,6 +247,8 @@ export class CommissionService {
         Home: emptyGroupTotal(),
         Nusafiber: emptyGroupTotal(),
         NusaSelecta: emptyGroupTotal(),
+        "Digital Business": emptyGroupTotal(),
+        "Access Business": emptyGroupTotal(),
       },
     };
     for (const r of memberResults) {
@@ -249,7 +258,7 @@ export class CommissionService {
       teamTotals.newMrc += r.breakdown.new.mrc;
       teamTotals.recurringSubscription += r.breakdown.recurring.subscription;
 
-      for (const group of serviceGroups) {
+      for (const group of teamServiceGroups) {
         const g = r.byServiceGroup[group];
         if (!g) continue;
         const target = teamTotals.byServiceGroup[group];
@@ -440,6 +449,8 @@ export class CommissionService {
       Home: emptyBreakdown(),
       Nusafiber: emptyBreakdown(),
       NusaSelecta: emptyBreakdown(),
+      "Digital Business": emptyBreakdown(),
+      "Access Business": emptyBreakdown(),
     };
     const items: CommissionLineItem[] = [];
 
@@ -488,7 +499,11 @@ export class CommissionService {
       addTo(total, delta);
       addTo(breakdown[bucket], delta);
 
-      const group = getServiceGroupLabel(row.service_id);
+      // Recurring uses the 5-way grouping (carves out Digital Business and
+      // Access Business); every other bucket keeps the plain 3-way one.
+      const group = bucket === "recurring"
+        ? getRecurringServiceGroupLabel(row.category, row.service_id)
+        : getServiceGroupLabel(row.service_id);
       addTo(byServiceGroup[group]![bucket], delta);
 
       items.push({

@@ -187,9 +187,14 @@ export type ManagerCommissionResult = {
     newSubscription: number;
     newMrc: number;
     recurringSubscription: number;
-    /** Same totals, split out per service group (Home/Nusafiber/NusaSelecta). */
+    /**
+     * Same totals, split out per service group. New* fields only ever
+     * populate for Home/Nusafiber/NusaSelecta; Digital Business and Access
+     * Business are recurring-only groups (KOMISI.md 3), so their new*
+     * fields always stay 0.
+     */
     byServiceGroup: Record<
-      "Home" | "Nusafiber" | "NusaSelecta",
+      "Home" | "Nusafiber" | "NusaSelecta" | "Digital Business" | "Access Business",
       {
         newCount: number;
         newSubscription: number;
