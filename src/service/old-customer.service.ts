@@ -246,8 +246,8 @@ export class OldCustomerService implements IOldCustomerService {
    * Old-customer variant: no category allowlist (every category is kept)
    * except IP Public and Domain, which never earn commission and are
    * dropped outright. Subscription comes straight from DPP, and type is
-   * always "recurring". Paid gate, the Alat/Setup service-name prefix rule,
-   * and sales/manager resolution stay identical to the new-customer path.
+   * always "recurring". Paid gate and sales/manager resolution stay
+   * identical to the new-customer path.
    */
   buildRecurringSnapshotValues(
     input: RawSnapshotInput,
@@ -258,10 +258,6 @@ export class OldCustomerService implements IOldCustomerService {
 
     if (category && EXCLUDED_OLD_CUSTOMER_CATEGORIES.has(category)) return null;
     if (paid !== "1") return null;
-
-    if (!this.snapshotService.isAllowedServiceName(category, input.namaService)) {
-      return null;
-    }
 
     // Digital Business commission is driven entirely by Internal vs Resell
     // (1% vs 0.5%), so a row we can't classify has no defined rate — drop it

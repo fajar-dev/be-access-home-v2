@@ -348,10 +348,6 @@ export class NewCustomerService implements INewCustomerService {
       return null;
     }
 
-    if (!this.snapshotService.isAllowedServiceName(category, input.namaService)) {
-      return null;
-    }
-
     const { subscription, type } = this.resolveSubscription(category, {
       dpp: input.dpp,
       prorate: input.prorate,

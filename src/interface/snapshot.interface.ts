@@ -41,7 +41,6 @@ export interface ISnapshotRepository {
 }
 
 export interface ISnapshotService {
-  isAllowedServiceName(category: string | null | undefined, serviceName: Scalar): boolean;
   /** Assembles the ordered values for a snapshots INSERT row. */
   assembleValues(
     input: RawSnapshotInput,

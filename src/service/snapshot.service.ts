@@ -2,32 +2,10 @@ import { parseDate, parseIntOrNull, parseNumber } from "../helper/parse.helper";
 import type {
   ISnapshotService,
   RawSnapshotInput,
-  Scalar,
   SnapshotType,
 } from "../interface/snapshot.interface";
 
-// For "Alat"/"Setup" rows (from either domain), only service names
-// starting with one of these are kept — anything else in those two
-// categories is skipped.
-const ALAT_SETUP_SERVICE_PREFIXES = [
-  "broadband fo home",
-  "nusafiber",
-  "nusaselecta",
-];
-
 export class SnapshotService implements ISnapshotService {
-  isAllowedServiceName(
-    category: string | null | undefined,
-    serviceName: Scalar,
-  ): boolean {
-    if (category !== "Alat" && category !== "Setup") return true;
-
-    const normalized = (serviceName ? String(serviceName) : "").trim().toLowerCase();
-    return ALAT_SETUP_SERVICE_PREFIXES.some((prefix) =>
-      normalized.startsWith(prefix),
-    );
-  }
-
   /** Assembles the ordered values for a snapshots INSERT row (column order must match snapshot.repository.ts). */
   assembleValues(
     input: RawSnapshotInput,
