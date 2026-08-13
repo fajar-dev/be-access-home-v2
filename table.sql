@@ -66,6 +66,17 @@ CREATE TABLE status_period (
     target INT NOT NULL DEFAULT 0
 );
 
+CREATE TABLE consistency_bonus (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_id VARCHAR(20) NOT NULL,
+    period VARCHAR(6) NOT NULL,
+    amount DECIMAL(15,2) NOT NULL DEFAULT 1000000,
+    note TEXT NOT NULL,
+    granted_by VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_consistency_bonus_employee_period (employee_id, period)
+);
+
 CREATE TABLE churn (
     customer_service_id BIGINT PRIMARY KEY NOT NULL,
     customer_id VARCHAR(20) NOT NULL,
