@@ -107,6 +107,8 @@ export type SalesCommissionResult = {
   achievementStatus: string;
   motivation: string;
   bonus: number;
+  /** Admin-granted Bonus Konsistensi for this period, 0 if never granted (separate from the auto-calculated `bonus` above). */
+  consistencyBonus: number;
   total: CommissionStats;
   breakdown: CommissionBreakdown;
   /** Same per-type breakdown as `breakdown`, scoped to each service group (Home/Nusafiber/NusaSelecta). */
@@ -137,6 +139,7 @@ export type ManagerTeamMember = {
   otherSubscription: number;
   otherCommission: number;
   bonus: number;
+  consistencyBonus: number;
   totalCommission: number;
   /**
    * This member's share of the manager's override, for the per-row display
@@ -234,6 +237,7 @@ export type SalesSummaryItem = {
   otherSubscription: number;
   otherCommission: number;
   bonus: number;
+  consistencyBonus: number;
   totalCommission: number;
 };
 

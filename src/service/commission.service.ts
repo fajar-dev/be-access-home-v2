@@ -40,6 +40,7 @@ import {
   type SnapshotDetailItem,
 } from "../interface/adjustment.interface";
 import { NotFoundException } from "../exception/http.exception";
+import type { IConsistencyBonusService } from "../interface/consistency-bonus.interface";
 import { CRO_PLACEHOLDER } from "./employee.service";
 
 function emptyStats(): CommissionStats {
@@ -99,6 +100,7 @@ export class CommissionService {
     private readonly snapshotRepository: ISnapshotReadRepository,
     private readonly churnService: IChurnService,
     private readonly employeeService: IEmployeeService,
+    private readonly consistencyBonusService: IConsistencyBonusService,
   ) {}
 
   /**
@@ -176,13 +178,16 @@ export class CommissionService {
     const team = await this.employeeService.getHierarchy(managerId, undefined, false, false);
     const teamIds = team.map((e) => e.employee_id);
 
-    const [statusRows, recurringRows, managerStatusPeriod] = await Promise.all([
-      teamIds.length > 0
-        ? this.employeeService.getStatusesByPeriodAndIds(teamIds, startDate, endDate)
-        : Promise.resolve([]),
-      this.snapshotRepository.findRecurringByManager(managerId, period),
-      this.employeeService.getStatusByPeriod(managerId, startDate, endDate),
-    ]);
+    const [statusRows, recurringRows, managerStatusPeriod, consistencyBonusByEmployeeId, managerConsistencyBonus] =
+      await Promise.all([
+        teamIds.length > 0
+          ? this.employeeService.getStatusesByPeriodAndIds(teamIds, startDate, endDate)
+          : Promise.resolve([]),
+        this.snapshotRepository.findRecurringByManager(managerId, period),
+        this.employeeService.getStatusByPeriod(managerId, startDate, endDate),
+        this.consistencyBonusService.getAmountsByEmployeeIds(teamIds, period),
+        this.consistencyBonusService.getAmount(managerId, period),
+      ]);
     const managerTarget = managerStatusPeriod?.target ?? DEFAULT_SALES_TARGET;
 
     // KOMISI.md 6.E: members without a status_period record for this period
@@ -193,7 +198,13 @@ export class CommissionService {
 
     const memberResults = await Promise.all(
       coveredTeam.map((e) =>
-        this.getSalesCommission(e.employee_id, period, undefined, targetByEmployeeId.get(e.employee_id)),
+        this.getSalesCommission(
+          e.employee_id,
+          period,
+          undefined,
+          targetByEmployeeId.get(e.employee_id),
+          consistencyBonusByEmployeeId.get(e.employee_id),
+        ),
       ),
     );
 
@@ -219,6 +230,7 @@ export class CommissionService {
       period,
       performance.isTargetAchieved ? managerTarget : 0,
       managerTarget,
+      managerConsistencyBonus,
     );
 
     // Kept 3-way — only used below for each member's "New Service" display,
@@ -345,7 +357,8 @@ export class CommissionService {
         otherSubscription,
         otherCommission,
         bonus: r.bonus,
-        totalCommission: r.total.commission + r.bonus,
+        consistencyBonus: r.consistencyBonus,
+        totalCommission: r.total.commission + r.bonus + r.consistencyBonus,
         managerNewCommission: r.breakdown.new.commission * (newCommissionRate / 100),
         managerRecurringCommission: r.breakdown.recurring.subscription * (recurringCommissionRate / 100),
         newService: serviceGroups.map((name) => ({
@@ -384,7 +397,11 @@ export class CommissionService {
       personal,
       croRecurring,
       totalCommission:
-        personal.total.commission + personal.bonus + overrideNewCommission + overrideRecurringCommission,
+        personal.total.commission +
+        personal.bonus +
+        personal.consistencyBonus +
+        overrideNewCommission +
+        overrideRecurringCommission,
       members,
     };
   }
@@ -449,15 +466,20 @@ export class CommissionService {
     rateActivityCountOverride?: number,
     /** This employee's New Achievement target for the period. Defaults to their configured/default target when omitted. */
     targetOverride?: number,
+    /** This employee's Bonus Konsistensi amount for the period. Defaults to a fresh lookup (0 if never granted) when omitted. */
+    consistencyBonusOverride?: number,
   ): Promise<SalesCommissionResult> {
     const { start, end } = getDateRangeForPeriod(period);
     const startDate = toSqlDate(start);
     const endDate = toSqlDate(end);
 
-    const [allRows, churnRows, statusPeriod] = await Promise.all([
+    const [allRows, churnRows, statusPeriod, consistencyBonus] = await Promise.all([
       this.snapshotRepository.findBySales(employeeId, period),
       this.churnService.getByEmployeeId(employeeId, startDate, endDate),
       this.employeeService.getStatusByPeriod(employeeId, startDate, endDate),
+      consistencyBonusOverride !== undefined
+        ? Promise.resolve(consistencyBonusOverride)
+        : this.consistencyBonusService.getAmount(employeeId, period),
     ]);
     const status = statusPeriod?.status ?? null;
     const target = targetOverride ?? statusPeriod?.target ?? DEFAULT_SALES_TARGET;
@@ -586,6 +608,7 @@ export class CommissionService {
       achievementStatus,
       motivation,
       bonus: calculateBonus(activityCount, target),
+      consistencyBonus,
       total,
       breakdown,
       byServiceGroup,
@@ -729,7 +752,8 @@ export class CommissionService {
         otherSubscription: r.breakdown.alat.subscription + r.breakdown.setup.subscription,
         otherCommission: r.breakdown.alat.commission + r.breakdown.setup.commission,
         bonus: r.bonus,
-        totalCommission: r.total.commission + r.bonus,
+        consistencyBonus: r.consistencyBonus,
+        totalCommission: r.total.commission + r.bonus + r.consistencyBonus,
       };
     });
   }
