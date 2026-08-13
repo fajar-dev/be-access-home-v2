@@ -10,6 +10,7 @@ import { NewCustomerRepository } from "./repository/new-customer.repository";
 import { OldCustomerRepository } from "./repository/old-customer.repository";
 import { FeedbackRepository } from "./repository/feedback.repository";
 import { ChurnRepository } from "./repository/churn.repository";
+import { ConsistencyBonusRepository } from "./repository/consistency-bonus.repository";
 
 import { EmployeeService } from "./service/employee.service";
 import { SnapshotService } from "./service/snapshot.service";
@@ -20,6 +21,7 @@ import { NusaworkService } from "./service/nusawork.service";
 import { AuthService } from "./service/auth.service";
 import { FeedbackService } from "./service/feedback.service";
 import { ChurnService } from "./service/churn.service";
+import { ConsistencyBonusService } from "./service/consistency-bonus.service";
 import { CommissionService } from "./service/commission.service";
 
 import { HealthController } from "./controller/health.controller";
@@ -56,6 +58,7 @@ class Container {
   readonly nusaworkClient = new NusaworkClient();
   readonly feedbackRepository = new FeedbackRepository();
   readonly churnRepository = new ChurnRepository(this.billingDatabase, this.appDatabase);
+  readonly consistencyBonusRepository = new ConsistencyBonusRepository(this.appDatabase);
 
   // Services
   readonly employeeService = new EmployeeService(this.employeeRepository);
@@ -77,10 +80,12 @@ class Container {
   readonly authService = new AuthService();
   readonly feedbackService = new FeedbackService(this.feedbackRepository);
   readonly churnService = new ChurnService(this.churnRepository);
+  readonly consistencyBonusService = new ConsistencyBonusService(this.consistencyBonusRepository);
   readonly commissionService = new CommissionService(
     this.snapshotRepository,
     this.churnService,
     this.employeeService,
+    this.consistencyBonusService,
   );
 
   // Controllers
@@ -93,6 +98,7 @@ class Container {
     this.commissionService,
     this.churnService,
     this.employeeService,
+    this.consistencyBonusService,
   );
 
   /** Closes every open DB connection pool — call before a job/process exits. */

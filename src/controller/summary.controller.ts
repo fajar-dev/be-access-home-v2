@@ -7,6 +7,7 @@ import type { CommissionService } from "../service/commission.service";
 import type { IChurnService } from "../interface/churn.interface";
 import type { IEmployeeService } from "../interface/employee.interface";
 import { ADJUSTABLE_FIELD_COLUMNS, type AdjustableSnapshotFields } from "../interface/adjustment.interface";
+import type { ConsistencyBonusItem, IConsistencyBonusService } from "../interface/consistency-bonus.interface";
 
 /** Admin-only cross-employee views: every Account Manager/Manager/invoice/churn row for a period. */
 export class SummaryController {
@@ -14,6 +15,7 @@ export class SummaryController {
     private readonly commissionService: CommissionService,
     private readonly churnService: IChurnService,
     private readonly employeeService: IEmployeeService,
+    private readonly consistencyBonusService: IConsistencyBonusService,
   ) {}
 
   async sales(c: Context) {
@@ -143,5 +145,62 @@ export class SummaryController {
     }
 
     return c.json(successResponse("Sales target updated successfully"));
+  }
+
+  /**
+   * Every Account Manager registered for a period with their Bonus
+   * Konsistensi grant, if any — same period-aware roster as Target.
+   */
+  async consistencyBonus(c: Context) {
+    const period = resolvePeriodFromQuery(c);
+    const { start, end } = getDateRangeForPeriod(period);
+    const roster = await this.employeeService.getSalesTargetsByPeriod(toSqlDate(start), toSqlDate(end));
+    const employeeIds = roster.map((e) => e.employeeId);
+
+    const grants = await this.consistencyBonusService.getGrantsByEmployeeIds(employeeIds, period);
+    const grantedByIds = [...new Set([...grants.values()].map((g) => g.granted_by))];
+    const granters = await this.employeeService.findByEmployeeIds(grantedByIds);
+    const granterNameById = new Map(granters.map((g) => [g.employee_id, g.name]));
+
+    const data: ConsistencyBonusItem[] = roster.map((e) => {
+      const grant = grants.get(e.employeeId);
+      return {
+        employeeId: e.employeeId,
+        name: e.name,
+        photoProfile: e.photoProfile,
+        status: e.status,
+        amount: grant ? Number(grant.amount) : 0,
+        note: grant?.note ?? null,
+        grantedBy: grant?.granted_by ?? null,
+        grantedByName: grant ? (granterNameById.get(grant.granted_by) ?? null) : null,
+        createdAt: grant?.created_at ?? null,
+      };
+    });
+
+    return c.json(successResponse("Consistency bonus retrieved successfully", data));
+  }
+
+  /** Admin grant (or edit-note re-grant) of Bonus Konsistensi (fixed Rp 1.000.000) for one Account Manager in a period. */
+  async grantConsistencyBonus(c: Context) {
+    const employeeId = c.req.param("id")!;
+    const period = resolvePeriodFromQuery(c);
+    const body = await c.req.json();
+    const user = c.get("user");
+
+    const note = typeof body.note === "string" ? body.note.trim() : "";
+    if (!note) {
+      throw new BadRequestException("Parameter note is required");
+    }
+
+    await this.consistencyBonusService.grant(employeeId, period, note, user.sub);
+    return c.json(successResponse("Consistency bonus granted successfully"));
+  }
+
+  /** Admin revocation of a previously-granted Bonus Konsistensi for one Account Manager in a period. */
+  async revokeConsistencyBonus(c: Context) {
+    const employeeId = c.req.param("id")!;
+    const period = resolvePeriodFromQuery(c);
+    await this.consistencyBonusService.revoke(employeeId, period);
+    return c.json(successResponse("Consistency bonus revoked successfully"));
   }
 }

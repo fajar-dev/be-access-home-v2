@@ -65,5 +65,14 @@ router.get("/summary/target", authMiddleware, adminMiddleware, (c) => container.
 router.put("/summary/target/:id", authMiddleware, adminMiddleware, (c) =>
   container.summaryController.updateTarget(c),
 );
+router.get("/summary/consistency-bonus", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.consistencyBonus(c),
+);
+router.put("/summary/consistency-bonus/:id", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.grantConsistencyBonus(c),
+);
+router.delete("/summary/consistency-bonus/:id", authMiddleware, adminMiddleware, (c) =>
+  container.summaryController.revokeConsistencyBonus(c),
+);
 
 export default router;
