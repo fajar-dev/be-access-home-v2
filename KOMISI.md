@@ -155,11 +155,14 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 
 **C. Skema Bonus Uang Tambahan (Dibayarkan dari total New Achievement bulanan)**
 
-- `New Achievement > 20` : **Rp 1.500.000** + _(Setiap kelipatan di atas 20 dinilai ekstra Rp 150.000)_
-- `New Achievement = 20` : **Rp 1.500.000**
-- `New Achievement 17 - 19` : **Rp 1.000.000**
-- `New Achievement 15 - 16` : **Rp 500.000**
-- `New Achievement < 15` : Tidak ada bonus pendanaan bulanan ekstra.
+> **⚠️ Tier bonus mengikuti Target Aktivitas sales tersebut** (bukan angka tetap seperti badge Achievement di atas). Basisnya target default **12**: tier bergeser sebesar selisih target sales itu terhadap 12. Contoh: target diatur ke 13 (selisih +1) → tier pertama naik dari 15 jadi 16. Target diatur ke 11 (selisih -1) → tier pertama turun jadi 14. Implementasi: `calculateBonus(activityCount, target)` di `commission.helper.ts`.
+
+- `New Achievement > (20 + selisih)` : **Rp 1.500.000** + _(Setiap kelipatan di atas `20 + selisih` dinilai ekstra Rp 150.000)_
+- `New Achievement = (20 + selisih)` : **Rp 1.500.000**
+- `New Achievement (17 + selisih) s.d. (19 + selisih)` : **Rp 1.000.000**
+- `New Achievement (15 + selisih) s.d. (16 + selisih)` : **Rp 500.000**
+- Selain itu : Tidak ada bonus pendanaan bulanan ekstra.
+- Untuk sales dengan target default (12), selisih = 0, jadi tier tetap 15/17/20 seperti sebelumnya.
 
 ---
 

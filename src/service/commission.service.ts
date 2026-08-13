@@ -560,7 +560,7 @@ export class CommissionService {
       activityCount,
       achievementStatus,
       motivation,
-      bonus: calculateBonus(activityCount),
+      bonus: calculateBonus(activityCount, target),
       total,
       breakdown,
       byServiceGroup,

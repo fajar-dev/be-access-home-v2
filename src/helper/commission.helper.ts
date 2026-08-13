@@ -3,6 +3,8 @@
  * keep the two in sync when either changes.
  */
 
+import { DEFAULT_SALES_TARGET } from "../interface/employee.interface";
+
 /** Commission behaves differently per group; derived from the snapshot's `category` label. */
 export type CommissionCategory = "home" | "alat" | "setup" | "digital-business";
 
@@ -319,12 +321,22 @@ export function calculateAchievement(
   return { achievementStatus: "N/A", motivation: "N/A" };
 }
 
-/** Extra monthly cash bonus, paid on top of commission. */
-export function calculateBonus(activityCount: number): number {
-  if (activityCount > 20) return 1_500_000 + (activityCount - 20) * 150_000;
-  if (activityCount === 20) return 1_500_000;
-  if (activityCount >= 17) return 1_000_000;
-  if (activityCount >= 15) return 500_000;
+/**
+ * Extra monthly cash bonus, paid on top of commission. Tiers are relative
+ * to the employee's own target (base 12): each tier shifts by the same
+ * amount the target differs from 12, e.g. target 13 moves the first tier
+ * from 15 to 16, target 11 moves it to 14.
+ */
+export function calculateBonus(activityCount: number, target: number): number {
+  const shift = target - DEFAULT_SALES_TARGET;
+  const tier1 = 15 + shift;
+  const tier2 = 17 + shift;
+  const tier3 = 20 + shift;
+
+  if (activityCount > tier3) return 1_500_000 + (activityCount - tier3) * 150_000;
+  if (activityCount === tier3) return 1_500_000;
+  if (activityCount >= tier2) return 1_000_000;
+  if (activityCount >= tier1) return 500_000;
   return 0;
 }
 
