@@ -164,6 +164,14 @@ Setiap record Churn yang masuk (dan bukan `is_approved`) akan mengurangi total p
 - Selain itu : Tidak ada Bonus Kelebihan Service.
 - Untuk sales dengan target default (12), selisih = 0, jadi tier tetap 15/17/20 seperti sebelumnya.
 
+**D. Bonus Konsistensi (Diberikan manual oleh admin, di luar New Achievement)**
+
+- Nominal **tetap Rp 1.000.000** per pemberian — tidak bisa diisi bebas.
+- Diberikan **per periode (bulan)**: admin memilih sales, menulis catatan (note wajib), lalu memberikan lewat halaman admin *Summary > Bonus Konsistensi*. Untuk bulan berikutnya harus diberikan ulang kalau masih mau lanjut — tidak otomatis berulang.
+- **Terpisah dari Bonus Kelebihan Service** (Bagian 5.C) — keduanya sama-sama ditambahkan ke Total Komisi, tapi dihitung dan ditampilkan sebagai dua angka berbeda (`bonus` vs `consistencyBonus`).
+- `Total Komisi = Base Commission Total + Bonus Kelebihan Service + Bonus Konsistensi` (ditambah komisi overriding untuk Manager, lihat Bagian 6.C/6.D).
+- Implementasi: tabel `consistency_bonus` (employee_id + period, unique), `ConsistencyBonusService` di `commission.service.ts`.
+
 ---
 
 ### 6. Komisi & Performa Manager Area
