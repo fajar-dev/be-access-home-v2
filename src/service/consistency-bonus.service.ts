@@ -26,8 +26,24 @@ export class ConsistencyBonusService implements IConsistencyBonusService {
     return new Map(rows.map((row) => [row.employee_id, row]));
   }
 
-  grant(employeeId: string, period: string, note: string, grantedBy: string): Promise<void> {
-    return this.consistencyBonusRepository.upsert(employeeId, period, note, grantedBy);
+  grant(
+    employeeId: string,
+    period: string,
+    note: string,
+    months: string | null,
+    serviceCount: number | null,
+    testimonialLink: string | null,
+    grantedBy: string,
+  ): Promise<void> {
+    return this.consistencyBonusRepository.upsert(
+      employeeId,
+      period,
+      note,
+      months,
+      serviceCount,
+      testimonialLink,
+      grantedBy,
+    );
   }
 
   revoke(employeeId: string, period: string): Promise<void> {

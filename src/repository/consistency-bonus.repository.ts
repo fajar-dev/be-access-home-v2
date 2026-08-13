@@ -10,17 +10,27 @@ export class ConsistencyBonusRepository implements IConsistencyBonusRepository {
   findByEmployeeIdsAndPeriod(employeeIds: string[], period: string): Promise<ConsistencyBonusRow[]> {
     if (employeeIds.length === 0) return Promise.resolve([]);
     return this.db.query<ConsistencyBonusRow[]>(
-      `SELECT employee_id, period, amount, note, granted_by, created_at
+      `SELECT employee_id, period, amount, note, months, service_count, testimonial_link, granted_by, created_at
        FROM consistency_bonus WHERE employee_id IN (?) AND period = ?`,
       [employeeIds, period],
     );
   }
 
-  async upsert(employeeId: string, period: string, note: string, grantedBy: string): Promise<void> {
+  async upsert(
+    employeeId: string,
+    period: string,
+    note: string,
+    months: string | null,
+    serviceCount: number | null,
+    testimonialLink: string | null,
+    grantedBy: string,
+  ): Promise<void> {
     await this.db.query(
-      `INSERT INTO consistency_bonus (employee_id, period, note, granted_by) VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE note = VALUES(note), granted_by = VALUES(granted_by)`,
-      [employeeId, period, note, grantedBy],
+      `INSERT INTO consistency_bonus (employee_id, period, note, months, service_count, testimonial_link, granted_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE note = VALUES(note), months = VALUES(months),
+         service_count = VALUES(service_count), testimonial_link = VALUES(testimonial_link), granted_by = VALUES(granted_by)`,
+      [employeeId, period, note, months, serviceCount, testimonialLink, grantedBy],
     );
   }
 

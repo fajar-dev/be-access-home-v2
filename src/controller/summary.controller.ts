@@ -171,6 +171,9 @@ export class SummaryController {
         status: e.status,
         amount: grant ? Number(grant.amount) : 0,
         note: grant?.note ?? null,
+        months: grant?.months ?? null,
+        serviceCount: grant?.service_count ?? null,
+        testimonialLink: grant?.testimonial_link ?? null,
         grantedBy: grant?.granted_by ?? null,
         grantedByName: grant ? (granterNameById.get(grant.granted_by) ?? null) : null,
         createdAt: grant?.created_at ?? null,
@@ -192,7 +195,18 @@ export class SummaryController {
       throw new BadRequestException("Parameter note is required");
     }
 
-    await this.consistencyBonusService.grant(employeeId, period, note, user.sub);
+    const serviceCount = Number(body.serviceCount);
+    if (!Number.isFinite(serviceCount) || serviceCount < 0) {
+      throw new BadRequestException("Parameter serviceCount is required");
+    }
+
+    const months =
+      Array.isArray(body.months) && body.months.length > 0
+        ? body.months.map((m: unknown) => Number(m)).join(",")
+        : null;
+    const testimonialLink = typeof body.testimonialLink === "string" && body.testimonialLink.trim() ? body.testimonialLink.trim() : null;
+
+    await this.consistencyBonusService.grant(employeeId, period, note, months, serviceCount, testimonialLink, user.sub);
     return c.json(successResponse("Consistency bonus granted successfully"));
   }
 

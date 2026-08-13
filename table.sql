@@ -72,6 +72,9 @@ CREATE TABLE consistency_bonus (
     period VARCHAR(6) NOT NULL,
     amount DECIMAL(15,2) NOT NULL DEFAULT 1000000,
     note TEXT NOT NULL,
+    months VARCHAR(50) NULL,
+    service_count INT NULL,
+    testimonial_link VARCHAR(500) NULL,
     granted_by VARCHAR(20) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_consistency_bonus_employee_period (employee_id, period)
