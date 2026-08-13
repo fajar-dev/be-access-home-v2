@@ -322,10 +322,10 @@ export function calculateAchievement(
 }
 
 /**
- * Extra monthly cash bonus, paid on top of commission. Tiers are relative
- * to the employee's own target (base 12): each tier shifts by the same
- * amount the target differs from 12, e.g. target 13 moves the first tier
- * from 15 to 16, target 11 moves it to 14.
+ * Bonus Kelebihan Service — extra monthly cash bonus, paid on top of
+ * commission. Tiers are relative to the employee's own target (base 12):
+ * each tier shifts by the same amount the target differs from 12, e.g.
+ * target 13 moves the first tier from 15 to 16, target 11 moves it to 14.
  */
 export function calculateBonus(activityCount: number, target: number): number {
   const shift = target - DEFAULT_SALES_TARGET;
