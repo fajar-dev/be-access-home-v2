@@ -299,6 +299,31 @@ export class CommissionService {
       .filter((row) => row.sales === CRO_PLACEHOLDER)
       .map((row) => this.valueManagerRecurringRow(row, recurringCommissionRate));
 
+    // Team Production by Service is meant to show the manager area's FULL
+    // production, so it also folds in the manager's own personal sales
+    // (KOMISI.md 6.F) and Customer Relation Officer recurring rows (6.D) —
+    // neither of which memberResults covers. Scoped to byServiceGroup only:
+    // the top-level teamTotals.* fields above stay team-members-only, since
+    // they feed the override commission calculation (6.C/6.D), which must
+    // never include the manager's own sales or CRO rows.
+    for (const group of teamServiceGroups) {
+      const g = personal.byServiceGroup[group];
+      if (!g) continue;
+      const target = teamTotals.byServiceGroup[group];
+      target.newCount += g.new.count;
+      target.newSubscription += g.new.subscription;
+      target.newMrc += g.new.mrc;
+      target.newCommission += g.new.commission;
+      target.recurringSubscription += g.recurring.subscription;
+      target.recurringCommission += g.recurring.commission;
+    }
+    for (const item of croRecurring) {
+      const group = getRecurringServiceGroupLabel(item.category, item.serviceId);
+      const target = teamTotals.byServiceGroup[group];
+      target.recurringSubscription += item.subscription;
+      target.recurringCommission += item.commission;
+    }
+
     const members = coveredTeam.map((e, i) => {
       const r = memberResults[i]!;
       const otherSubscription = r.breakdown.alat.subscription + r.breakdown.setup.subscription;
